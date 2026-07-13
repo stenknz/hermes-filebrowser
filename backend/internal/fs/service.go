@@ -50,7 +50,17 @@ func (s *Service) SafePath(path string) (string, error) {
 	if !strings.HasPrefix(absPath, s.root) {
 		return "", os.ErrPermission
 	}
-	return absPath, nil
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return absPath, nil
+		}
+		return "", err
+	}
+	if !strings.HasPrefix(resolvedPath, s.root) {
+		return "", os.ErrPermission
+	}
+	return resolvedPath, nil
 }
 
 func (s *Service) List(dirPath string) ([]FileInfo, error) {
