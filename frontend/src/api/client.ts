@@ -20,11 +20,13 @@ async function request(method: string, url: string, body?: unknown) {
     body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || 'Request failed')
+    const text = await res.text().catch(() => '')
+    try { const err = JSON.parse(text); throw new Error(err.error || 'Request failed') }
+    catch (e: any) { throw new Error(e.message || res.statusText || 'Request failed') }
   }
-  if (res.status === 204) return null
-  return res.json()
+  const text = await res.text()
+  if (!text) return null
+  try { return JSON.parse(text) } catch { return null }
 }
 
 export const api = {
