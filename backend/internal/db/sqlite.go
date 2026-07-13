@@ -101,6 +101,15 @@ func (d *DB) GetSessionByToken(token string) (*Session, error) {
 	return s, nil
 }
 
+func (d *DB) GetUserByID(id int64) (*User, error) {
+	u := &User{}
+	err := d.conn.QueryRow("SELECT id, username, password_hash, read_only FROM users WHERE id = ?", id).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.ReadOnly)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
 func (d *DB) DeleteSession(token string) error {
 	_, err := d.conn.Exec("DELETE FROM sessions WHERE token = ?", token)
 	return err
