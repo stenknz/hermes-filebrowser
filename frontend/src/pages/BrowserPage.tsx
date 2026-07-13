@@ -7,6 +7,8 @@ import Toolbar from '../components/Toolbar'
 import Breadcrumb from '../components/Breadcrumb'
 import FileList from '../components/FileList'
 import DropZone from '../components/DropZone'
+import SearchBar from '../components/SearchBar'
+import PreviewPane from '../components/PreviewPane'
 
 export default function BrowserPage() {
   const { user, logout, isAuthenticated } = useAuth()
@@ -15,6 +17,7 @@ export default function BrowserPage() {
   const [files, setFiles] = useState<any[]>([])
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' as 'asc' | 'desc' })
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [searchResults, setSearchResults] = useState<any[] | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) navigate('/login')
@@ -122,9 +125,14 @@ export default function BrowserPage() {
             readOnly={user?.readOnly || false}
           />
           <Breadcrumb path={path} onNavigate={setPath} />
+          <SearchBar
+            path={path}
+            onResults={(results) => setSearchResults(results)}
+            onClear={() => setSearchResults(null)}
+          />
           <DropZone path={path} onUploadComplete={() => fetchFiles(path)}>
             <FileList
-              files={files}
+              files={searchResults ?? files}
               onNavigate={setPath}
               sort={sort}
               onSort={key => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))}
@@ -132,6 +140,7 @@ export default function BrowserPage() {
               selectedFile={selectedFile}
             />
           </DropZone>
+          <PreviewPane filePath={selectedFile} />
         </div>
       </div>
     </div>
