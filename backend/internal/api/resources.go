@@ -152,10 +152,14 @@ func (h *resourcesHandler) HandleUpload(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *resourcesHandler) HandleRaw(w http.ResponseWriter, r *http.Request) {
-	filePath := chi.URLParam(r, "path")
+	filePath := chi.URLParam(r, "*")
+	if filePath == "" {
+		filePath = chi.URLParam(r, "path")
+	}
 	if filePath == "" {
 		filePath = r.URL.Query().Get("path")
 	}
+	filePath = strings.TrimPrefix(filePath, "/")
 	data, err := h.svc.Read(filePath)
 	if err != nil {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
