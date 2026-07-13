@@ -1,0 +1,14 @@
+services:
+  hermes:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - FB_PORT=8080
+      - FB_ROOT=/data
+      - FB_USERNAME=admin
+      - FB_PASSWORD=changeme
+      - FB_DATABASE=/data/filebrowser.db
+    volumes:
+      - /volume2/HermesShared:/data
+    restart: unless-stopped
