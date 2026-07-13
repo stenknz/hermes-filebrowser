@@ -11,10 +11,11 @@ FROM golang:1.26-alpine AS backend
 WORKDIR /app
 COPY backend/ ./
 COPY --from=frontend /app/frontend/dist ./internal/api/frontend/dist
-RUN CGO_ENABLED=0 go build -o /hermes ./cmd/hermes
+RUN CGO_ENABLED=0 go build -o /hermes ./cmd/hermes && mkdir -p /data
 
 # Stage 3: Distroless runtime
 FROM gcr.io/distroless/base-debian12
 COPY --from=backend /hermes /hermes
+COPY --from=backend /data /data
 EXPOSE 8080
 ENTRYPOINT ["/hermes"]
