@@ -64,16 +64,47 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 
 		sh := NewSearchHandler(fileSvc)
 		r.Get("/api/search", sh.Search)
+
+		uh := NewUsersHandler(database)
+		r.Get("/api/users", uh.ListUsers)
+		r.Post("/api/users", uh.CreateUser)
+		r.Post("/api/users/delete", uh.DeleteUser)
+		r.Get("/api/tokens", uh.ListApiTokens)
+		r.Post("/api/tokens", uh.CreateApiToken)
+		r.Post("/api/tokens/delete", uh.DeleteApiToken)
 	})
 
-	// Serve embedded frontend
+	// Serve embedded frontend (SPA fallback)
 	r.Group(func(r chi.Router) {
 		subFS, err := iofs.Sub(frontendFS, "frontend/dist")
 		if err != nil {
 			log.Fatalf("failed to get frontend sub FS: %v", err)
 		}
 		fileServer := http.FileServer(http.FS(subFS))
-		r.Handle("/*", fileServer)
+		// Read and cache index.html for SPA fallback
+		indexData := func() []byte {
+			f, err := subFS.Open("index.html")
+			if err != nil {
+				return nil
+			}
+			defer f.Close()
+			info, _ := f.Stat()
+			data := make([]byte, info.Size())
+			f.Read(data)
+			return data
+		}()
+		r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := r.URL.Path
+			if path != "/" {
+				_, err := iofs.Stat(subFS, path[1:])
+				if err == nil {
+					fileServer.ServeHTTP(w, r)
+					return
+				}
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(indexData)
+		}))
 	})
 
 	return r

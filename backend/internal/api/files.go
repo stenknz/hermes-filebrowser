@@ -60,7 +60,7 @@ func (h *fileHandler) Thumbnail(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -89,7 +89,7 @@ func (h *fileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) CreateDir(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -103,7 +103,7 @@ func (h *fileHandler) CreateDir(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -124,7 +124,7 @@ func (h *fileHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Rename(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -145,7 +145,7 @@ func (h *fileHandler) Rename(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -159,7 +159,7 @@ func (h *fileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Copy(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -180,7 +180,7 @@ func (h *fileHandler) Copy(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Move(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}

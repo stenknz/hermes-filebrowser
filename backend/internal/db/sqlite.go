@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -40,7 +41,7 @@ func (d *DB) migrate() error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
-			read_only INTEGER DEFAULT 0
+			role TEXT NOT NULL DEFAULT 'viewer'
 		);
 		CREATE TABLE IF NOT EXISTS sessions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,8 +49,20 @@ func (d *DB) migrate() error {
 			token TEXT UNIQUE NOT NULL,
 			expires_at TEXT NOT NULL
 		);
+		CREATE TABLE IF NOT EXISTS api_tokens (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id),
+			token TEXT UNIQUE NOT NULL,
+			name TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	// Handle migration from old read_only column to role
+	d.conn.Exec("UPDATE users SET role = 'viewer' WHERE role = '' OR role IS NULL")
+	return nil
 }
 
 func (d *DB) EnsureAdmin(username, password string) error {
@@ -64,23 +77,56 @@ func (d *DB) EnsureAdmin(username, password string) error {
 	if err != nil {
 		return err
 	}
-	_, err = d.conn.Exec("INSERT INTO users (username, password_hash, read_only) VALUES (?, ?, 0)", username, string(hash))
+	_, err = d.conn.Exec("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", username, string(hash), RoleAdmin)
 	return err
 }
 
-func (d *DB) CreateUser(username, passwordHash string, readOnly bool) (*User, error) {
+func (d *DB) CreateUser(username, passwordHash string, role Role) (*User, error) {
 	u := &User{}
-	err := d.conn.QueryRow("INSERT INTO users (username, password_hash, read_only) VALUES (?, ?, ?) RETURNING id, username, password_hash, read_only",
-		username, passwordHash, readOnly).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.ReadOnly)
+	err := d.conn.QueryRow("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?) RETURNING id, username, password_hash, role",
+		username, passwordHash, role).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role)
 	if err != nil {
 		return nil, err
 	}
 	return u, nil
 }
 
+func (d *DB) ListUsers() ([]*User, error) {
+	rows, err := d.conn.Query("SELECT id, username, password_hash, role FROM users ORDER BY id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []*User
+	for rows.Next() {
+		u := &User{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func (d *DB) DeleteUser(id int64) error {
+	d.conn.Exec("DELETE FROM sessions WHERE user_id = ?", id)
+	d.conn.Exec("DELETE FROM api_tokens WHERE user_id = ?", id)
+	_, err := d.conn.Exec("DELETE FROM users WHERE id = ?", id)
+	return err
+}
+
 func (d *DB) GetUserByUsername(username string) (*User, error) {
 	u := &User{}
-	err := d.conn.QueryRow("SELECT id, username, password_hash, read_only FROM users WHERE username = ?", username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.ReadOnly)
+	err := d.conn.QueryRow("SELECT id, username, password_hash, role FROM users WHERE username = ?", username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (d *DB) GetUserByID(id int64) (*User, error) {
+	u := &User{}
+	err := d.conn.QueryRow("SELECT id, username, password_hash, role FROM users WHERE id = ?", id).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -101,16 +147,48 @@ func (d *DB) GetSessionByToken(token string) (*Session, error) {
 	return s, nil
 }
 
-func (d *DB) GetUserByID(id int64) (*User, error) {
-	u := &User{}
-	err := d.conn.QueryRow("SELECT id, username, password_hash, read_only FROM users WHERE id = ?", id).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.ReadOnly)
+func (d *DB) DeleteSession(token string) error {
+	_, err := d.conn.Exec("DELETE FROM sessions WHERE token = ?", token)
+	return err
+}
+
+func (d *DB) CreateApiToken(userID int64, token, name string) (*ApiToken, error) {
+	t := &ApiToken{}
+	err := d.conn.QueryRow("INSERT INTO api_tokens (user_id, token, name, created_at) VALUES (?, ?, ?, ?) RETURNING id, user_id, token, name, created_at",
+		userID, token, name, time.Now().UTC().Format(time.RFC3339)).Scan(&t.ID, &t.UserID, &t.Token, &t.Name, &t.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return u, nil
+	return t, nil
 }
 
-func (d *DB) DeleteSession(token string) error {
-	_, err := d.conn.Exec("DELETE FROM sessions WHERE token = ?", token)
+func (d *DB) GetApiTokenByToken(token string) (*ApiToken, error) {
+	t := &ApiToken{}
+	err := d.conn.QueryRow("SELECT id, user_id, token, name, created_at FROM api_tokens WHERE token = ?", token).Scan(&t.ID, &t.UserID, &t.Token, &t.Name, &t.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (d *DB) ListApiTokens(userID int64) ([]*ApiToken, error) {
+	rows, err := d.conn.Query("SELECT id, user_id, token, name, created_at FROM api_tokens WHERE user_id = ? ORDER BY id", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tokens []*ApiToken
+	for rows.Next() {
+		t := &ApiToken{}
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Token, &t.Name, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens, nil
+}
+
+func (d *DB) DeleteApiToken(id int64) error {
+	_, err := d.conn.Exec("DELETE FROM api_tokens WHERE id = ?", id)
 	return err
 }

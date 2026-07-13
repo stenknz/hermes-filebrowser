@@ -63,6 +63,17 @@ func (s *Service) SafePath(path string) (string, error) {
 	return resolvedPath, nil
 }
 
+var hiddenPrefixes = []string{"filebrowser.db"}
+
+func isHidden(name string) bool {
+	for _, prefix := range hiddenPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) List(dirPath string) ([]FileInfo, error) {
 	fullPath, err := s.SafePath(dirPath)
 	if err != nil {
@@ -74,6 +85,9 @@ func (s *Service) List(dirPath string) ([]FileInfo, error) {
 	}
 	var infos []FileInfo
 	for _, e := range entries {
+		if isHidden(e.Name()) {
+			continue
+		}
 		info, err := e.Info()
 		if err != nil {
 			continue

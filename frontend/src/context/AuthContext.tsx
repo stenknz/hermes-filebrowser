@@ -4,7 +4,7 @@ import { api } from '../api/client'
 interface User {
   id: number
   username: string
-  readOnly: boolean
+  role: string
 }
 
 interface AuthContextType {
@@ -14,6 +14,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
+  isAdmin: boolean
+  readOnly: boolean
 }
 
 const AuthContext = createContext<AuthContextType>(null!)
@@ -46,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user, isAdmin: user?.role === 'admin', readOnly: user?.role === 'viewer' }}>
       {children}
     </AuthContext.Provider>
   )

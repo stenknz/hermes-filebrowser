@@ -18,6 +18,10 @@ func NewSessionToken() (string, time.Time) {
 	return uuid.New().String(), time.Now().Add(24 * time.Hour)
 }
 
+func NewApiToken() string {
+	return "fb_" + uuid.New().String()
+}
+
 func GetUser(r *http.Request) *db.User {
 	u, _ := r.Context().Value(userKey).(*db.User)
 	return u
@@ -36,11 +40,25 @@ func SessionMiddleware(database *db.DB) func(http.Handler) http.Handler {
 				}
 			}
 			if token != "" {
+				// Try session token first
 				session, err := database.GetSessionByToken(token)
 				if err == nil {
-					expiresAt, _ := time.Parse(time.RFC3339, session.ExpiresAt)
-					if time.Now().Before(expiresAt) {
+					expiresAt, parseErr := time.Parse(time.RFC3339, session.ExpiresAt)
+					if parseErr == nil && time.Now().Before(expiresAt) {
 						user, _ := database.GetUserByID(session.UserID)
+						if user != nil {
+							ctx := context.WithValue(r.Context(), userKey, user)
+							r = r.WithContext(ctx)
+							next.ServeHTTP(w, r)
+							return
+						}
+					}
+				}
+				// Try API token
+				apiToken, err := database.GetApiTokenByToken(token)
+				if err == nil {
+					user, _ := database.GetUserByID(apiToken.UserID)
+					if user != nil {
 						ctx := context.WithValue(r.Context(), userKey, user)
 						r = r.WithContext(ctx)
 					}

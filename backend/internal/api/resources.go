@@ -42,7 +42,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	}
 	switch req.Action {
 	case "mkdir":
-		if user.ReadOnly {
+		if user.ReadOnly() {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 			return
 		}
@@ -52,7 +52,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusCreated)
 	case "write":
-		if user.ReadOnly {
+		if user.ReadOnly() {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 			return
 		}
@@ -62,7 +62,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusCreated)
 	case "copy":
-		if user.ReadOnly {
+		if user.ReadOnly() {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 			return
 		}
@@ -72,7 +72,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusOK)
 	case "move":
-		if user.ReadOnly {
+		if user.ReadOnly() {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 			return
 		}
@@ -88,7 +88,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 
 func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -109,7 +109,7 @@ func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 
 func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}
@@ -123,7 +123,7 @@ func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 
 func (h *resourcesHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
-	if user.ReadOnly {
+	if user.ReadOnly() {
 		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 		return
 	}

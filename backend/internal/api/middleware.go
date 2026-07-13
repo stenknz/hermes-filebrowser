@@ -5,12 +5,18 @@ import (
 	"encoding/hex"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
 func CSRFMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// API tokens bypass CSRF (they're not cookie-based)
+		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer fb_") {
 			next.ServeHTTP(w, r)
 			return
 		}

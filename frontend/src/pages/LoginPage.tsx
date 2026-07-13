@@ -23,7 +23,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
       <form onSubmit={handleSubmit} className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-8 w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold text-center">Hermes Filebrowser</h1>
+        <h1 className="text-xl font-semibold text-center">FileBrowser</h1>
         {error && <p className="text-[var(--color-danger)] text-sm text-center">{error}</p>}
         <input className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
         <input className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />

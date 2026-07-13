@@ -1,4 +1,4 @@
-# Hermes Filebrowser
+# FileBrowser
 
 A self-hosted file browser with a React frontend and Go backend. Browse, upload, search, preview, and manage files on your server through a clean web UI.
 

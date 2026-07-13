@@ -26,6 +26,6 @@ func main() {
 	router := api.NewRouter(database, cfg)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
-	log.Printf("Hermes Filebrowser listening on %s", addr)
+	log.Printf("FileBrowser listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, router))
 }

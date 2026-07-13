@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import BrowserPage from './pages/BrowserPage'
+import SettingsPage from './pages/SettingsPage'
 
 export default function App() {
   return (
@@ -9,6 +10,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/*" element={<BrowserPage />} />
         </Routes>
       </AuthProvider>
