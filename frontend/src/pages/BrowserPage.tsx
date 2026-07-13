@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
@@ -22,26 +22,29 @@ export default function BrowserPage() {
   const [modalType, setModalType] = useState<string | null>(null)
   const [modalValue, setModalValue] = useState('')
 
-  const pathRef = useRef(path)
-  pathRef.current = path
-
   useEffect(() => {
     if (!loading && !isAuthenticated) navigate('/login')
   }, [isAuthenticated, loading])
 
-  async function loadFiles(p: string) {
+  const goTo = useCallback(async (p: string) => {
+    setPath(p)
+    setSearchResults(null)
+    setSelectedFile(null)
     try {
       const res = await api.get(`/api/files?path=${encodeURIComponent(p)}`)
-      setFiles(res.data)
+      setFiles(res && res.data ? res.data : [])
     } catch { setFiles([]) }
-  }
+  }, [])
 
-  useEffect(() => { loadFiles(path) }, [path])
+  useEffect(() => { goTo('') }, [])
 
   function openModal(type: string, value = '') {
     setModalValue(value)
     setModalType(type)
   }
+
+  const currentSelected = useRef<string | null>(null)
+  currentSelected.current = selectedFile
 
   async function handleUpload() {
     const input = document.createElement('input')
@@ -52,9 +55,9 @@ export default function BrowserPage() {
       for (const file of Array.from(input.files)) {
         const fd = new FormData()
         fd.append('file', file)
-        await api.post(`/api/files/upload?path=${encodeURIComponent(pathRef.current)}`, fd)
+        await api.post(`/api/files/upload?path=${encodeURIComponent(path)}`, fd)
       }
-      loadFiles(pathRef.current)
+      goTo(path)
     }
     input.click()
   }
@@ -63,48 +66,48 @@ export default function BrowserPage() {
   async function handleNewFile() { openModal('newFile') }
   async function handleRename() { if (selectedFile) openModal('rename', selectedFile.split('/').pop() || '') }
   async function handleDelete() { openModal('delete') }
-  async function handleCopy() { if (selectedFile) openModal('copy', selectedFile + '_copy') }
-  async function handleMove() { if (selectedFile) openModal('move', selectedFile) }
+  async function handleCopy() { if (selectedFile) openModal('copy') }
+  async function handleMove() { if (selectedFile) openModal('move') }
 
   async function confirmModal(val?: string) {
     const mt = modalType
     setModalType(null)
     if (!mt) return
-    const currentPath = pathRef.current
-    const currentSelected = selectedFile
+    const cs = currentSelected.current
     try {
       switch (mt) {
         case 'newFolder':
           if (!val) return
-          await api.post(`/api/files/dir?path=${encodeURIComponent(currentPath ? currentPath + '/' + val : val)}`)
+          await api.post(`/api/files/dir?path=${encodeURIComponent(path ? path + '/' + val : val)}`)
           break
         case 'newFile':
           if (!val) return
-          await api.post('/api/files/file', { path: currentPath ? currentPath + '/' + val : val, content: '' })
+          await api.post('/api/files/file', { path: path ? path + '/' + val : val, content: '' })
           break
         case 'rename':
-          if (!val || !currentSelected) return
-          const parts = currentSelected.split('/')
+          if (!val || !cs) return
+          const parts = cs.split('/')
           parts[parts.length - 1] = val
-          await api.put('/api/files/rename', { oldPath: currentSelected, newPath: parts.join('/') })
+          await api.put('/api/files/rename', { oldPath: cs, newPath: parts.join('/') })
           setSelectedFile(null)
           break
         case 'delete':
-          if (!currentSelected) return
-          await api.delete(`/api/files?path=${encodeURIComponent(currentSelected)}`)
+          if (!cs) return
+          await api.delete(`/api/files?path=${encodeURIComponent(cs)}`)
           setSelectedFile(null)
           break
         case 'copy':
-          if (!val || !currentSelected) return
-          await api.post('/api/files/copy', { source: currentSelected, destination: val })
+          if (!val || !cs) return
+          await api.post('/api/files/copy', { source: cs, destination: val })
+          setSelectedFile(null)
           break
         case 'move':
-          if (!val || !currentSelected) return
-          await api.post('/api/files/move', { source: currentSelected, destination: val })
+          if (!val || !cs) return
+          await api.post('/api/files/move', { source: cs, destination: val })
           setSelectedFile(null)
           break
       }
-      loadFiles(currentPath)
+      goTo(path)
     } catch (e: any) {
       alert(e.message || 'Operation failed')
     }
@@ -129,7 +132,7 @@ export default function BrowserPage() {
         </div>
       </header>
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar currentPath={path} onNavigate={setPath} onNewFolder={handleNewFolder} onNewFile={handleNewFile} />
+        <Sidebar currentPath={path} onNavigate={goTo} onNewFolder={handleNewFolder} onNewFile={handleNewFile} />
         <div className="flex-1 flex flex-col">
           <Toolbar
             selectedFile={selectedFile}
@@ -142,16 +145,16 @@ export default function BrowserPage() {
             onMove={handleMove}
             readOnly={user?.readOnly || false}
           />
-          <Breadcrumb path={path} onNavigate={setPath} />
+          <Breadcrumb path={path} onNavigate={goTo} />
           <SearchBar
             path={path}
             onResults={(results) => setSearchResults(results)}
             onClear={() => setSearchResults(null)}
           />
-          <DropZone path={path} onUploadComplete={() => loadFiles(pathRef.current)}>
+          <DropZone path={path} onUploadComplete={() => goTo(path)}>
             <FileList
               files={searchResults ?? files}
-              onNavigate={(p) => { setPath(p); setSearchResults(null) }}
+              onNavigate={goTo}
               sort={sort}
               onSort={key => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))}
               onSelect={setSelectedFile}
@@ -164,8 +167,8 @@ export default function BrowserPage() {
       <PromptModal open={modalType === 'newFolder'} title="New Folder" label="Folder name" initialValue={modalValue} confirmText="Create" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
       <PromptModal open={modalType === 'newFile'} title="New File" label="File name" initialValue={modalValue} confirmText="Create" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
       <PromptModal open={modalType === 'rename'} title="Rename" label="New name" initialValue={modalValue} confirmText="Rename" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
-      <PromptModal open={modalType === 'copy'} title="Copy" label="Destination path" initialValue={modalValue} confirmText="Copy" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
-      <PromptModal open={modalType === 'move'} title="Move" label="Destination path" initialValue={modalValue} confirmText="Move" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
+      <PromptModal open={modalType === 'move'} title="Move to" label="Destination path (e.g. subfolder or newfolder)" initialValue={modalValue} confirmText="Move" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
+      <PromptModal open={modalType === 'copy'} title="Copy to" label="Destination path (e.g. subfolder/copy.txt)" initialValue={modalValue} confirmText="Copy" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
       <ConfirmModal open={modalType === 'delete'} title="Delete" message={selectedFile ? `Delete "${selectedFile}"?` : ''} danger onConfirm={confirmModal} onCancel={() => setModalType(null)} />
     </div>
   )
