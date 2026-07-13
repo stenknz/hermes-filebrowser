@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/youruser/hermes-filebrowser/internal/auth"
-	"github.com/youruser/hermes-filebrowser/internal/config"
-	"github.com/youruser/hermes-filebrowser/internal/db"
+	"github.com/stenknz/hermes-filebrowser/internal/auth"
+	"github.com/stenknz/hermes-filebrowser/internal/config"
+	"github.com/stenknz/hermes-filebrowser/internal/db"
 )
 
 type authHandler struct {

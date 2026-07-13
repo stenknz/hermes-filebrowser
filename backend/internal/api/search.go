@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/youruser/hermes-filebrowser/internal/fs"
+	"github.com/stenknz/hermes-filebrowser/internal/fs"
 )
 
 type searchHandler struct {

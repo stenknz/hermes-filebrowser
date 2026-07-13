@@ -1,4 +1,4 @@
-module github.com/youruser/hermes-filebrowser
+module github.com/stenknz/hermes-filebrowser
 
 go 1.26.5
 

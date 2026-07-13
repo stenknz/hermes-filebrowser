@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
-	"github.com/youruser/hermes-filebrowser/internal/auth"
-	"github.com/youruser/hermes-filebrowser/internal/config"
-	"github.com/youruser/hermes-filebrowser/internal/db"
-	"github.com/youruser/hermes-filebrowser/internal/fs"
+	"github.com/stenknz/hermes-filebrowser/internal/auth"
+	"github.com/stenknz/hermes-filebrowser/internal/config"
+	"github.com/stenknz/hermes-filebrowser/internal/db"
+	"github.com/stenknz/hermes-filebrowser/internal/fs"
 
 	iofs "io/fs"
 )

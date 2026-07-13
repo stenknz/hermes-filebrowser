@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/youruser/hermes-filebrowser/internal/db"
+	"github.com/stenknz/hermes-filebrowser/internal/db"
 )
 
 type contextKey string

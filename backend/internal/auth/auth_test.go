@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/youruser/hermes-filebrowser/internal/db"
+	"github.com/stenknz/hermes-filebrowser/internal/db"
 	"golang.org/x/crypto/bcrypt"
 )
 

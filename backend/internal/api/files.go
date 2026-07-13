@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/youruser/hermes-filebrowser/internal/auth"
-	"github.com/youruser/hermes-filebrowser/internal/fs"
+	"github.com/stenknz/hermes-filebrowser/internal/auth"
+	"github.com/stenknz/hermes-filebrowser/internal/fs"
 )
 
 type fileHandler struct {
