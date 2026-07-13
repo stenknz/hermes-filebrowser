@@ -24,6 +24,8 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RealIP)
 	r.Use(LoggingMiddleware)
+	r.Use(CORSMiddleware)
+	r.Use(SecurityHeadersMiddleware)
 
 	authMw := auth.SessionMiddleware(database)
 
@@ -34,6 +36,8 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 	// Protected API routes
 	r.Group(func(r chi.Router) {
 		r.Use(authMw)
+		r.Use(requireAuth)
+		r.Use(JSONContentType)
 		r.Use(CSRFMiddleware)
 		r.Post("/api/logout", ah.Logout)
 		r.Get("/api/me", ah.Me)

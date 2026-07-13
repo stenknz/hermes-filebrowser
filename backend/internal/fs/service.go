@@ -34,6 +34,8 @@ func NewService(root string) (*Service, error) {
 	return &Service{root: absRoot}, nil
 }
 
+var ErrIsRoot = os.ErrInvalid // operating on the root directory is not allowed
+
 func (s *Service) SafePath(path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return "", os.ErrPermission
@@ -42,7 +44,7 @@ func (s *Service) SafePath(path string) (string, error) {
 	if strings.HasPrefix(clean, "..") || strings.Contains(clean, "..") {
 		return "", os.ErrPermission
 	}
-	fullPath := filepath.Join(s.root, clean)
+		fullPath := filepath.Join(s.root, clean)
 	absPath, err := filepath.Abs(fullPath)
 	if err != nil {
 		return "", err
@@ -113,6 +115,9 @@ func (s *Service) Read(filePath string) ([]byte, error) {
 }
 
 func (s *Service) Write(filePath string, data []byte) error {
+	if filePath == "" {
+		return ErrIsRoot
+	}
 	fullPath, err := s.SafePath(filePath)
 	if err != nil {
 		return err
@@ -121,6 +126,9 @@ func (s *Service) Write(filePath string, data []byte) error {
 }
 
 func (s *Service) Delete(filePath string) error {
+	if filePath == "" {
+		return ErrIsRoot
+	}
 	fullPath, err := s.SafePath(filePath)
 	if err != nil {
 		return err
@@ -129,6 +137,9 @@ func (s *Service) Delete(filePath string) error {
 }
 
 func (s *Service) Rename(oldPath, newPath string) error {
+	if oldPath == "" || newPath == "" {
+		return ErrIsRoot
+	}
 	fullOld, err := s.SafePath(oldPath)
 	if err != nil {
 		return err
@@ -141,6 +152,9 @@ func (s *Service) Rename(oldPath, newPath string) error {
 }
 
 func (s *Service) Copy(src, dst string) error {
+	if src == "" || dst == "" {
+		return ErrIsRoot
+	}
 	fullSrc, err := s.SafePath(src)
 	if err != nil {
 		return err
@@ -166,6 +180,9 @@ func (s *Service) Copy(src, dst string) error {
 }
 
 func (s *Service) Mkdir(dirPath string) error {
+	if dirPath == "" {
+		return ErrIsRoot
+	}
 	fullPath, err := s.SafePath(dirPath)
 	if err != nil {
 		return err

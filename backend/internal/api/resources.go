@@ -30,6 +30,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action      string `json:"action"`
 		Path        string `json:"path"`
+		Name        string `json:"name"`
 		Content     string `json:"content"`
 		Source      string `json:"source"`
 		Destination string `json:"destination"`
@@ -40,10 +41,18 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 		return
 	}
+	// Support both "path" and "name" fields
+	if req.Path == "" {
+		req.Path = req.Name
+	}
 	switch req.Action {
 	case "mkdir":
 		if user.ReadOnly() {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+			return
+		}
+		if req.Path == "" {
+			http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
 			return
 		}
 		if err := h.svc.Mkdir(req.Path); err != nil {
@@ -56,6 +65,10 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 			return
 		}
+		if req.Path == "" {
+			http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
+			return
+		}
 		if err := h.svc.Write(req.Path, []byte(req.Content)); err != nil {
 			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
 			return
@@ -66,6 +79,10 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
 			return
 		}
+		if req.Source == "" || req.Destination == "" {
+			http.Error(w, `{"error":"source and destination required"}`, http.StatusBadRequest)
+			return
+		}
 		if err := h.svc.Copy(req.Source, req.Destination); err != nil {
 			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 			return
@@ -74,6 +91,10 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	case "move":
 		if user.ReadOnly() {
 			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+			return
+		}
+		if req.Source == "" || req.Destination == "" {
+			http.Error(w, `{"error":"source and destination required"}`, http.StatusBadRequest)
 			return
 		}
 		if err := h.svc.Rename(req.Source, req.Destination); err != nil {
@@ -100,6 +121,10 @@ func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 		return
 	}
+	if req.OldPath == "" || req.NewPath == "" {
+		http.Error(w, `{"error":"oldPath and newPath required"}`, http.StatusBadRequest)
+		return
+	}
 	if err := h.svc.Rename(req.OldPath, req.NewPath); err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
@@ -114,6 +139,10 @@ func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
+		return
+	}
 	if err := h.svc.Delete(filePath); err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
@@ -160,6 +189,11 @@ func (h *resourcesHandler) HandleRaw(w http.ResponseWriter, r *http.Request) {
 		filePath = r.URL.Query().Get("path")
 	}
 	filePath = strings.TrimPrefix(filePath, "/")
+	// Reject path traversal in URL path
+	if strings.Contains(filePath, "..") {
+		http.Error(w, `{"error":"invalid path"}`, http.StatusBadRequest)
+		return
+	}
 	data, err := h.svc.Read(filePath)
 	if err != nil {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
