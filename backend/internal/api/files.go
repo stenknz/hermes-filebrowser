@@ -65,14 +65,21 @@ func (h *fileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dirPath := r.URL.Query().Get("path")
-	r.ParseMultipartForm(32 << 20)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, `{"error":"invalid multipart form"}`, http.StatusBadRequest)
+		return
+	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, `{"error":"missing file"}`, http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
-	data, _ := io.ReadAll(file)
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, `{"error":"failed to read file"}`, http.StatusInternalServerError)
+		return
+	}
 	if err := h.svc.Write(filepath.Join(dirPath, header.Filename), data); err != nil {
 		http.Error(w, `{"error":"write failed"}`, http.StatusInternalServerError)
 		return

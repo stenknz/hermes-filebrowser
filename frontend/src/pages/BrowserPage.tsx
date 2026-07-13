@@ -9,6 +9,7 @@ import FileList from '../components/FileList'
 import DropZone from '../components/DropZone'
 import SearchBar from '../components/SearchBar'
 import PreviewPane from '../components/PreviewPane'
+import { PromptModal, ConfirmModal } from '../components/Modal'
 
 export default function BrowserPage() {
   const { user, logout, isAuthenticated } = useAuth()
@@ -18,6 +19,8 @@ export default function BrowserPage() {
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' as 'asc' | 'desc' })
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<any[] | null>(null)
+  const [modal, setModal] = useState<{ type: 'newFolder' | 'newFile' | 'rename' | 'copy' | 'move' | 'delete' } | null>(null)
+  const [modalValue, setModalValue] = useState('')
 
   useEffect(() => {
     if (!isAuthenticated) navigate('/login')
@@ -49,53 +52,75 @@ export default function BrowserPage() {
   }
 
   async function handleNewFolder() {
-    const name = window.prompt('Folder name:')
-    if (!name) return
-    await api.post(`/api/files/dir?path=${encodeURIComponent(path ? path + '/' + name : name)}`)
-    fetchFiles(path)
+    setModalValue('')
+    setModal({ type: 'newFolder' })
   }
 
   async function handleNewFile() {
-    const name = window.prompt('File name:')
-    if (!name) return
-    await api.post('/api/files/file', { path: path ? path + '/' + name : name, content: '' })
-    fetchFiles(path)
+    setModalValue('')
+    setModal({ type: 'newFile' })
   }
 
   async function handleRename() {
     if (!selectedFile) return
-    const newName = window.prompt('New name:', selectedFile.split('/').pop())
-    if (!newName) return
-    const parts = selectedFile.split('/')
-    parts[parts.length - 1] = newName
-    const newPath = parts.join('/')
-    await api.put('/api/files/rename', { oldPath: selectedFile, newPath })
-    setSelectedFile(null)
-    fetchFiles(path)
+    setModalValue(selectedFile.split('/').pop() || '')
+    setModal({ type: 'rename' })
   }
 
   async function handleDelete() {
-    if (!selectedFile || !window.confirm(`Delete "${selectedFile}"?`)) return
-    await api.delete(`/api/files?path=${encodeURIComponent(selectedFile)}`)
-    setSelectedFile(null)
-    fetchFiles(path)
+    setModal({ type: 'delete' })
   }
 
   async function handleCopy() {
     if (!selectedFile) return
-    const dst = window.prompt('Destination path:', selectedFile + '_copy')
-    if (!dst) return
-    await api.post('/api/files/copy', { source: selectedFile, destination: dst })
-    fetchFiles(path)
+    setModalValue(selectedFile + '_copy')
+    setModal({ type: 'copy' })
   }
 
   async function handleMove() {
     if (!selectedFile) return
-    const dst = window.prompt('Move to:', selectedFile)
-    if (!dst) return
-    await api.post('/api/files/move', { source: selectedFile, destination: dst })
-    setSelectedFile(null)
-    fetchFiles(path)
+    setModalValue(selectedFile)
+    setModal({ type: 'move' })
+  }
+
+  async function confirmModal(val?: string) {
+    const m = modal
+    setModal(null)
+    if (!m) return
+    try {
+      switch (m.type) {
+        case 'newFolder':
+          if (!val) return
+          await api.post(`/api/files/dir?path=${encodeURIComponent(path ? path + '/' + val : val)}`)
+          break
+        case 'newFile':
+          if (!val) return
+          await api.post('/api/files/file', { path: path ? path + '/' + val : val, content: '' })
+          break
+        case 'rename':
+          if (!val || !selectedFile) return
+          const parts = selectedFile.split('/')
+          parts[parts.length - 1] = val
+          await api.put('/api/files/rename', { oldPath: selectedFile, newPath: parts.join('/') })
+          setSelectedFile(null)
+          break
+        case 'delete':
+          if (!selectedFile) return
+          await api.delete(`/api/files?path=${encodeURIComponent(selectedFile)}`)
+          setSelectedFile(null)
+          break
+        case 'copy':
+          if (!val || !selectedFile) return
+          await api.post('/api/files/copy', { source: selectedFile, destination: val })
+          break
+        case 'move':
+          if (!val || !selectedFile) return
+          await api.post('/api/files/move', { source: selectedFile, destination: val })
+          setSelectedFile(null)
+          break
+      }
+      fetchFiles(path)
+    } catch { /* errors shown via toast in future */ }
   }
 
   return (
@@ -143,6 +168,59 @@ export default function BrowserPage() {
           <PreviewPane filePath={selectedFile} />
         </div>
       </div>
+      <PromptModal
+        open={modal?.type === 'newFolder' || false}
+        title="New Folder"
+        label="Folder name"
+        initialValue={modalValue}
+        confirmText="Create"
+        onConfirm={confirmModal}
+        onCancel={() => setModal(null)}
+      />
+      <PromptModal
+        open={modal?.type === 'newFile' || false}
+        title="New File"
+        label="File name"
+        initialValue={modalValue}
+        confirmText="Create"
+        onConfirm={confirmModal}
+        onCancel={() => setModal(null)}
+      />
+      <PromptModal
+        open={modal?.type === 'rename' || false}
+        title="Rename"
+        label="New name"
+        initialValue={modalValue}
+        confirmText="Rename"
+        onConfirm={confirmModal}
+        onCancel={() => setModal(null)}
+      />
+      <PromptModal
+        open={modal?.type === 'copy' || false}
+        title="Copy"
+        label="Destination path"
+        initialValue={modalValue}
+        confirmText="Copy"
+        onConfirm={confirmModal}
+        onCancel={() => setModal(null)}
+      />
+      <PromptModal
+        open={modal?.type === 'move' || false}
+        title="Move"
+        label="Destination path"
+        initialValue={modalValue}
+        confirmText="Move"
+        onConfirm={confirmModal}
+        onCancel={() => setModal(null)}
+      />
+      <ConfirmModal
+        open={modal?.type === 'delete' || false}
+        title="Delete"
+        message={selectedFile ? `Delete "${selectedFile}"?` : ''}
+        danger
+        onConfirm={confirmModal}
+        onCancel={() => setModal(null)}
+      />
     </div>
   )
 }
