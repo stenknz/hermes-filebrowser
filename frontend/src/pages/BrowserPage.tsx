@@ -161,7 +161,7 @@ export default function BrowserPage() {
               selectedFile={selectedFile}
             />
           </DropZone>
-          <PreviewPane filePath={selectedFile} />
+          <PreviewPane filePath={selectedFile} onRefresh={() => goTo(path)} />
         </div>
       </div>
       <PromptModal open={modalType === 'newFolder'} title="New Folder" label="Folder name" initialValue={modalValue} confirmText="Create" onConfirm={confirmModal} onCancel={() => setModalType(null)} />
