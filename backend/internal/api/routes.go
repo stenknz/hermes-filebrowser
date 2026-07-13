@@ -54,6 +54,13 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 		r.Post("/api/files/copy", fh.Copy)
 		r.Post("/api/files/move", fh.Move)
 
+		rh := NewResourcesHandler(fileSvc)
+		r.Post("/api/resources", rh.HandlePost)
+		r.Patch("/api/resources", rh.HandlePatch)
+		r.Delete("/api/resources", rh.HandleDelete)
+		r.Post("/api/upload", rh.HandleUpload)
+		r.Get("/api/raw/{path}", rh.HandleRaw)
+
 		sh := NewSearchHandler(fileSvc)
 		r.Get("/api/search", sh.Search)
 	})
