@@ -21,6 +21,12 @@ func New(path string) (*DB, error) {
 	if err := d.migrate(); err != nil {
 		return nil, err
 	}
+	conn.Exec("PRAGMA journal_mode=WAL")
+	conn.Exec("PRAGMA foreign_keys=ON")
+	conn.Exec("PRAGMA busy_timeout=5000")
+	if err := conn.Ping(); err != nil {
+		return nil, err
+	}
 	return d, nil
 }
 
@@ -48,7 +54,9 @@ func (d *DB) migrate() error {
 
 func (d *DB) EnsureAdmin(username, password string) error {
 	var count int
-	d.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	if err := d.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
+		return err
+	}
 	if count > 0 {
 		return nil
 	}
