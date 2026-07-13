@@ -18,10 +18,10 @@ export default function SettingsPage() {
   useEffect(() => { if (!loading && (!isAuthenticated || !isAdmin)) navigate('/') }, [isAuthenticated, isAdmin, loading])
 
   async function loadUsers() {
-    try { const r = await api.get('/api/users'); setUsers(r.data) } catch {}
+    try { const r = await api.get('/api/users'); setUsers(r ? r.data : []) } catch (e: any) { alert('Failed to load users: ' + (e.message || e)) }
   }
   async function loadTokens() {
-    try { const r = await api.get('/api/tokens'); setTokens(r.data) } catch {}
+    try { const r = await api.get('/api/tokens'); setTokens(r ? r.data : []) } catch (e: any) { alert('Failed to load tokens: ' + (e.message || e)) }
   }
   useEffect(() => { if (isAdmin) { loadUsers(); loadTokens() } }, [isAdmin])
 

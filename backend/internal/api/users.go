@@ -28,6 +28,9 @@ func (h *usersHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
 		return
 	}
+	if users == nil {
+		users = []*db.User{}
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"data": users})
 }
 
@@ -101,6 +104,9 @@ func (h *usersHandler) ListApiTokens(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
 		return
+	}
+	if tokens == nil {
+		tokens = []*db.ApiToken{}
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"data": tokens})
 }
