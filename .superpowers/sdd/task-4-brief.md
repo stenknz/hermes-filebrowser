@@ -1,3 +1,16 @@
+### Task 4: File Service
+
+**Files:**
+- Create: `backend/internal/fs/service.go`
+
+**Interfaces:**
+- Consumes: `config.Config.Root`
+- Produces: `NewService(root string) *Service` with methods: `List(path string) ([]FileInfo, error)`, `Read(path string) ([]byte, error)`, `Write(path string, data []byte) error`, `Delete(path string) error`, `Rename(oldPath, newPath string) error`, `Copy(src, dst string) error`, `Mkdir(path string) error`, `Thumbnail(path string) ([]byte, error)`, `SafePath(path string) (string, error)`
+
+- [ ] **Step 1: Create file service with path traversal prevention**
+
+File: `backend/internal/fs/service.go`
+```go
 package fs
 
 import (
@@ -26,18 +39,12 @@ type Service struct {
 	root string
 }
 
-func NewService(root string) (*Service, error) {
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return nil, err
-	}
-	return &Service{root: absRoot}, nil
+func NewService(root string) *Service {
+	absRoot, _ := filepath.Abs(root)
+	return &Service{root: absRoot}
 }
 
 func (s *Service) SafePath(path string) (string, error) {
-	if filepath.IsAbs(path) {
-		return "", os.ErrPermission
-	}
 	clean := filepath.Clean(path)
 	if strings.HasPrefix(clean, "..") || strings.Contains(clean, "..") {
 		return "", os.ErrPermission
@@ -64,10 +71,7 @@ func (s *Service) List(dirPath string) ([]FileInfo, error) {
 	}
 	var infos []FileInfo
 	for _, e := range entries {
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
+		info, _ := e.Info()
 		infos = append(infos, FileInfo{
 			Name:    e.Name(),
 			Path:    filepath.Join(dirPath, e.Name()),
@@ -134,10 +138,8 @@ func (s *Service) Copy(src, dst string) error {
 	if err != nil {
 		return err
 	}
+	defer dstFile.Close()
 	_, err = io.Copy(dstFile, srcFile)
-	if closeErr := dstFile.Close(); closeErr != nil {
-		return closeErr
-	}
 	return err
 }
 
@@ -179,3 +181,17 @@ func (s *Service) Thumbnail(filePath string) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+```
+
+- [ ] **Step 2: Add thumbnail dependency**
+
+```bash
+cd backend && go get golang.org/x/image && go mod tidy && go build ./cmd/hermes
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add backend/internal/fs/
+git commit -m "feat: add file service with path traversal prevention"
+```

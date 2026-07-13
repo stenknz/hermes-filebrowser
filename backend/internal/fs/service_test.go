@@ -11,7 +11,10 @@ import (
 
 func TestSafePath_Valid(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := s.SafePath("subdir/file.txt")
 	if err != nil {
@@ -25,7 +28,10 @@ func TestSafePath_Valid(t *testing.T) {
 
 func TestSafePath_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []string{
 		"../etc/passwd",
@@ -34,7 +40,7 @@ func TestSafePath_Traversal(t *testing.T) {
 		"../",
 	}
 	for _, p := range tests {
-		_, err := s.SafePath(p)
+		_, err = s.SafePath(p)
 		if err == nil {
 			t.Errorf("expected error for path %q", p)
 		}
@@ -43,10 +49,13 @@ func TestSafePath_Traversal(t *testing.T) {
 
 func TestSafePath_AbsolutePath(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// absolute paths that are outside root should fail
-	_, err := s.SafePath("C:\\windows\\system32")
+	_, err = s.SafePath("C:\\windows\\system32")
 	if err == nil {
 		t.Error("expected error for absolute path outside root")
 	}
@@ -54,7 +63,10 @@ func TestSafePath_AbsolutePath(t *testing.T) {
 
 func TestList(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644)
 	os.MkdirAll(filepath.Join(dir, "sub"), 0755)
@@ -78,9 +90,12 @@ func TestList(t *testing.T) {
 
 func TestList_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := s.List("..")
+	_, err = s.List("..")
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -88,10 +103,13 @@ func TestList_Traversal(t *testing.T) {
 
 func TestReadWrite(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	data := []byte("hello world")
-	err := s.Write("test.txt", data)
+	err = s.Write("test.txt", data)
 	if err != nil {
 		t.Fatalf("write error: %v", err)
 	}
@@ -107,9 +125,12 @@ func TestReadWrite(t *testing.T) {
 
 func TestRead_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := s.Read("../outside.txt")
+	_, err = s.Read("../outside.txt")
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -117,9 +138,12 @@ func TestRead_Traversal(t *testing.T) {
 
 func TestWrite_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := s.Write("../outside.txt", []byte("data"))
+	err = s.Write("../outside.txt", []byte("data"))
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -127,11 +151,14 @@ func TestWrite_Traversal(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	os.WriteFile(filepath.Join(dir, "del.txt"), []byte("data"), 0644)
 
-	err := s.Delete("del.txt")
+	err = s.Delete("del.txt")
 	if err != nil {
 		t.Fatalf("delete error: %v", err)
 	}
@@ -142,9 +169,12 @@ func TestDelete(t *testing.T) {
 
 func TestDelete_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := s.Delete("../outside.txt")
+	err = s.Delete("../outside.txt")
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -152,11 +182,14 @@ func TestDelete_Traversal(t *testing.T) {
 
 func TestRename(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	os.WriteFile(filepath.Join(dir, "old.txt"), []byte("data"), 0644)
 
-	err := s.Rename("old.txt", "new.txt")
+	err = s.Rename("old.txt", "new.txt")
 	if err != nil {
 		t.Fatalf("rename error: %v", err)
 	}
@@ -170,9 +203,12 @@ func TestRename(t *testing.T) {
 
 func TestRename_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := s.Rename("old.txt", "../new.txt")
+	err = s.Rename("old.txt", "../new.txt")
 	if err == nil {
 		t.Error("expected error for path traversal in dest")
 	}
@@ -180,11 +216,14 @@ func TestRename_Traversal(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	os.WriteFile(filepath.Join(dir, "src.txt"), []byte("copy data"), 0644)
 
-	err := s.Copy("src.txt", "dst.txt")
+	err = s.Copy("src.txt", "dst.txt")
 	if err != nil {
 		t.Fatalf("copy error: %v", err)
 	}
@@ -198,9 +237,12 @@ func TestCopy(t *testing.T) {
 
 func TestCopy_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := s.Copy("../outside.txt", "inside.txt")
+	err = s.Copy("../outside.txt", "inside.txt")
 	if err == nil {
 		t.Error("expected error for path traversal in source")
 	}
@@ -208,9 +250,12 @@ func TestCopy_Traversal(t *testing.T) {
 
 func TestMkdir(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := s.Mkdir("newdir/subdir")
+	err = s.Mkdir("newdir/subdir")
 	if err != nil {
 		t.Fatalf("mkdir error: %v", err)
 	}
@@ -221,9 +266,12 @@ func TestMkdir(t *testing.T) {
 
 func TestMkdir_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := s.Mkdir("../outside")
+	err = s.Mkdir("../outside")
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -231,7 +279,10 @@ func TestMkdir_Traversal(t *testing.T) {
 
 func TestThumbnail(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	imgPath := filepath.Join(dir, "test.png")
 	f, _ := os.Create(imgPath)
@@ -249,7 +300,10 @@ func TestThumbnail(t *testing.T) {
 
 func TestThumbnail_SmallImage(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	imgPath := filepath.Join(dir, "small.png")
 	f, _ := os.Create(imgPath)
@@ -267,9 +321,12 @@ func TestThumbnail_SmallImage(t *testing.T) {
 
 func TestThumbnail_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := s.Thumbnail("nonexistent.png")
+	_, err = s.Thumbnail("nonexistent.png")
 	if err == nil {
 		t.Error("expected error for non-existent file")
 	}
@@ -277,9 +334,12 @@ func TestThumbnail_NotFound(t *testing.T) {
 
 func TestThumbnail_Traversal(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := s.Thumbnail("../outside.png")
+	_, err = s.Thumbnail("../outside.png")
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -287,7 +347,10 @@ func TestThumbnail_Traversal(t *testing.T) {
 
 func TestRootTraversal_viaSymlink(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Ensure symlinked paths outside root are still blocked
 	outside := t.TempDir()
@@ -296,7 +359,7 @@ func TestRootTraversal_viaSymlink(t *testing.T) {
 		t.Skip("symlinks not supported on this system")
 	}
 
-	_, err := s.Read("link/../outside.txt")
+	_, err = s.Read("link/../outside.txt")
 	if err == nil {
 		t.Error("expected error for traversal via symlink")
 	}
@@ -304,7 +367,10 @@ func TestRootTraversal_viaSymlink(t *testing.T) {
 
 func TestSafePath_SameAsRoot(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := s.SafePath(".")
 	if err != nil {
@@ -317,7 +383,10 @@ func TestSafePath_SameAsRoot(t *testing.T) {
 
 func TestSafePath_WindowsBackslash(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// On Windows, filepath.Clean handles backslashes
 	got, err := s.SafePath("subdir\\file.txt")
@@ -331,7 +400,10 @@ func TestSafePath_WindowsBackslash(t *testing.T) {
 }
 
 func TestRootIsCleaned(t *testing.T) {
-	s := NewService("/data/../data")
+	s, err := NewService("/data/../data")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.HasSuffix(s.root, "data") {
 		t.Errorf("root should be cleaned, got %q", s.root)
 	}
@@ -339,9 +411,12 @@ func TestRootIsCleaned(t *testing.T) {
 
 func TestList_NonExistentDir(t *testing.T) {
 	dir := t.TempDir()
-	s := NewService(dir)
+	s, err := NewService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := s.List("nonexistent")
+	_, err = s.List("nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent directory")
 	}

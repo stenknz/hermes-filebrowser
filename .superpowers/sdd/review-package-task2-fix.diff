@@ -1,0 +1,60 @@
+037f757 fix: address DB layer review findings — error handling, Ping, pragmas
+ backend/internal/db/sqlite.go | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/backend/internal/db/sqlite.go b/backend/internal/db/sqlite.go
+index 5970366..bd20560 100644
+--- a/backend/internal/db/sqlite.go
++++ b/backend/internal/db/sqlite.go
+@@ -14,20 +14,26 @@ type DB struct {
+ 
+ func New(path string) (*DB, error) {
+ 	conn, err := sql.Open("sqlite", path)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	d := &DB{conn: conn}
+ 	if err := d.migrate(); err != nil {
+ 		return nil, err
+ 	}
++	conn.Exec("PRAGMA journal_mode=WAL")
++	conn.Exec("PRAGMA foreign_keys=ON")
++	conn.Exec("PRAGMA busy_timeout=5000")
++	if err := conn.Ping(); err != nil {
++		return nil, err
++	}
+ 	return d, nil
+ }
+ 
+ func (d *DB) Close() error {
+ 	return d.conn.Close()
+ }
+ 
+ func (d *DB) migrate() error {
+ 	_, err := d.conn.Exec(`
+ 		CREATE TABLE IF NOT EXISTS users (
+@@ -41,21 +47,23 @@ func (d *DB) migrate() error {
+ 			user_id INTEGER NOT NULL REFERENCES users(id),
+ 			token TEXT UNIQUE NOT NULL,
+ 			expires_at TEXT NOT NULL
+ 		);
+ 	`)
+ 	return err
+ }
+ 
+ func (d *DB) EnsureAdmin(username, password string) error {
+ 	var count int
+-	d.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
++	if err := d.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
++		return err
++	}
+ 	if count > 0 {
+ 		return nil
+ 	}
+ 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	_, err = d.conn.Exec("INSERT INTO users (username, password_hash, read_only) VALUES (?, ?, 0)", username, string(hash))
+ 	return err
+ }

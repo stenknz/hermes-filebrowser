@@ -1,0 +1,590 @@
+99297fa feat: add file service with path traversal prevention
+ backend/go.mod                      |   1 +
+ backend/go.sum                      |   2 +
+ backend/internal/fs/service.go      | 173 ++++++++++++++++++
+ backend/internal/fs/service_test.go | 348 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 524 insertions(+)
+
+diff --git a/backend/go.mod b/backend/go.mod
+index 62ddf47..9ac1b78 100644
+--- a/backend/go.mod
++++ b/backend/go.mod
+@@ -1,17 +1,18 @@
+ module github.com/youruser/hermes-filebrowser
+ 
+ go 1.26.5
+ 
+ require (
+ 	github.com/google/uuid v1.6.0
+ 	golang.org/x/crypto v0.54.0
++	golang.org/x/image v0.44.0
+ 	modernc.org/sqlite v1.53.0
+ )
+ 
+ require (
+ 	github.com/dustin/go-humanize v1.0.1 // indirect
+ 	github.com/mattn/go-isatty v0.0.20 // indirect
+ 	github.com/ncruces/go-strftime v1.0.0 // indirect
+ 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+ 	golang.org/x/sys v0.47.0 // indirect
+ 	modernc.org/libc v1.73.4 // indirect
+diff --git a/backend/go.sum b/backend/go.sum
+index 5456856..286af40 100644
+--- a/backend/go.sum
++++ b/backend/go.sum
+@@ -7,20 +7,22 @@ github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+
+ github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
+ github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
+ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
+ github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
+ github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
+ github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
+ github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
+ github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
+ golang.org/x/crypto v0.54.0 h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=
+ golang.org/x/crypto v0.54.0/go.mod h1:KWL8ny2AZdGR2cWmzeHrp2azQPGogOv+HeQaVEXC2dk=
++golang.org/x/image v0.44.0 h1:+tDekMZED9+LrtB3G5xzRggpVh9CARjZqROla3R3R+I=
++golang.org/x/image v0.44.0/go.mod h1:V8K3KE9KKKE+pLpQDOeN18w9oacNSvy1tDOirTu4xtY=
+ golang.org/x/mod v0.36.0 h1:JJjpVx6myfUsUdAzZuOSTTmRE0PfZeNWzzvKrP7amb4=
+ golang.org/x/mod v0.36.0/go.mod h1:moc6ELqsWcOw5Ef3xVprK5ul/MvtVvkIXLziUOICjUQ=
+ golang.org/x/sync v0.20.0 h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=
+ golang.org/x/sync v0.20.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
+ golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+ golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
+ golang.org/x/tools v0.45.0 h1:18qN3FAooORvApf5XjCXgsuayZOEtXf6JK18I3+ONa8=
+ golang.org/x/tools v0.45.0/go.mod h1:LuUGqqaXcXMEFEruIVJVm5mgDD8vww/z/SR1gQ4uE/0=
+ modernc.org/cc/v4 v4.28.4 h1:Hd/4Es+MBj+/7hSdZaisNyu6bv3V0Dp2MdllyfqaH+c=
+diff --git a/backend/internal/fs/service.go b/backend/internal/fs/service.go
+new file mode 100644
+index 0000000..29db6f9
+--- /dev/null
++++ b/backend/internal/fs/service.go
+@@ -0,0 +1,173 @@
++package fs
++
++import (
++	"bytes"
++	"image"
++	"image/jpeg"
++	"io"
++	"os"
++	"path/filepath"
++	"strings"
++	"time"
++
++	"golang.org/x/image/draw"
++)
++
++type FileInfo struct {
++	Name    string      `json:"name"`
++	Path    string      `json:"path"`
++	Size    int64       `json:"size"`
++	IsDir   bool        `json:"isDir"`
++	ModTime time.Time   `json:"modTime"`
++	Mode    os.FileMode `json:"mode"`
++}
++
++type Service struct {
++	root string
++}
++
++func NewService(root string) *Service {
++	absRoot, _ := filepath.Abs(root)
++	return &Service{root: absRoot}
++}
++
++func (s *Service) SafePath(path string) (string, error) {
++	if filepath.IsAbs(path) {
++		return "", os.ErrPermission
++	}
++	clean := filepath.Clean(path)
++	if strings.HasPrefix(clean, "..") || strings.Contains(clean, "..") {
++		return "", os.ErrPermission
++	}
++	fullPath := filepath.Join(s.root, clean)
++	absPath, err := filepath.Abs(fullPath)
++	if err != nil {
++		return "", err
++	}
++	if !strings.HasPrefix(absPath, s.root) {
++		return "", os.ErrPermission
++	}
++	return absPath, nil
++}
++
++func (s *Service) List(dirPath string) ([]FileInfo, error) {
++	fullPath, err := s.SafePath(dirPath)
++	if err != nil {
++		return nil, err
++	}
++	entries, err := os.ReadDir(fullPath)
++	if err != nil {
++		return nil, err
++	}
++	var infos []FileInfo
++	for _, e := range entries {
++		info, _ := e.Info()
++		infos = append(infos, FileInfo{
++			Name:    e.Name(),
++			Path:    filepath.Join(dirPath, e.Name()),
++			Size:    info.Size(),
++			IsDir:   e.IsDir(),
++			ModTime: info.ModTime(),
++			Mode:    info.Mode(),
++		})
++	}
++	return infos, nil
++}
++
++func (s *Service) Read(filePath string) ([]byte, error) {
++	fullPath, err := s.SafePath(filePath)
++	if err != nil {
++		return nil, err
++	}
++	return os.ReadFile(fullPath)
++}
++
++func (s *Service) Write(filePath string, data []byte) error {
++	fullPath, err := s.SafePath(filePath)
++	if err != nil {
++		return err
++	}
++	return os.WriteFile(fullPath, data, 0644)
++}
++
++func (s *Service) Delete(filePath string) error {
++	fullPath, err := s.SafePath(filePath)
++	if err != nil {
++		return err
++	}
++	return os.RemoveAll(fullPath)
++}
++
++func (s *Service) Rename(oldPath, newPath string) error {
++	fullOld, err := s.SafePath(oldPath)
++	if err != nil {
++		return err
++	}
++	fullNew, err := s.SafePath(newPath)
++	if err != nil {
++		return err
++	}
++	return os.Rename(fullOld, fullNew)
++}
++
++func (s *Service) Copy(src, dst string) error {
++	fullSrc, err := s.SafePath(src)
++	if err != nil {
++		return err
++	}
++	fullDst, err := s.SafePath(dst)
++	if err != nil {
++		return err
++	}
++	srcFile, err := os.Open(fullSrc)
++	if err != nil {
++		return err
++	}
++	defer srcFile.Close()
++	dstFile, err := os.Create(fullDst)
++	if err != nil {
++		return err
++	}
++	defer dstFile.Close()
++	_, err = io.Copy(dstFile, srcFile)
++	return err
++}
++
++func (s *Service) Mkdir(dirPath string) error {
++	fullPath, err := s.SafePath(dirPath)
++	if err != nil {
++		return err
++	}
++	return os.MkdirAll(fullPath, 0755)
++}
++
++func (s *Service) Thumbnail(filePath string) ([]byte, error) {
++	fullPath, err := s.SafePath(filePath)
++	if err != nil {
++		return nil, err
++	}
++	src, err := os.Open(fullPath)
++	if err != nil {
++		return nil, err
++	}
++	defer src.Close()
++	img, _, err := image.Decode(src)
++	if err != nil {
++		return nil, err
++	}
++	bounds := img.Bounds()
++	const maxSize = 200
++	newW, newH := bounds.Dx(), bounds.Dy()
++	if newW > maxSize || newH > maxSize {
++		ratio := float64(maxSize) / float64(max(newW, newH))
++		newW = int(float64(newW) * ratio)
++		newH = int(float64(newH) * ratio)
++	}
++	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
++	draw.BiLinear.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
++	var buf bytes.Buffer
++	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 80}); err != nil {
++		return nil, err
++	}
++	return buf.Bytes(), nil
++}
+diff --git a/backend/internal/fs/service_test.go b/backend/internal/fs/service_test.go
+new file mode 100644
+index 0000000..c0ece65
+--- /dev/null
++++ b/backend/internal/fs/service_test.go
+@@ -0,0 +1,348 @@
++package fs
++
++import (
++	"image"
++	"image/png"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++func TestSafePath_Valid(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	got, err := s.SafePath("subdir/file.txt")
++	if err != nil {
++		t.Fatalf("unexpected error: %v", err)
++	}
++	want := filepath.Join(dir, "subdir/file.txt")
++	if got != want {
++		t.Errorf("got %q, want %q", got, want)
++	}
++}
++
++func TestSafePath_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	tests := []string{
++		"../etc/passwd",
++		"foo/../../etc/passwd",
++		"..",
++		"../",
++	}
++	for _, p := range tests {
++		_, err := s.SafePath(p)
++		if err == nil {
++			t.Errorf("expected error for path %q", p)
++		}
++	}
++}
++
++func TestSafePath_AbsolutePath(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	// absolute paths that are outside root should fail
++	_, err := s.SafePath("C:\\windows\\system32")
++	if err == nil {
++		t.Error("expected error for absolute path outside root")
++	}
++}
++
++func TestList(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644)
++	os.MkdirAll(filepath.Join(dir, "sub"), 0755)
++
++	infos, err := s.List(".")
++	if err != nil {
++		t.Fatalf("unexpected error: %v", err)
++	}
++
++	found := make(map[string]bool)
++	for _, fi := range infos {
++		found[fi.Name] = true
++	}
++	if !found["a.txt"] {
++		t.Error("expected a.txt in listing")
++	}
++	if !found["sub"] {
++		t.Error("expected sub in listing")
++	}
++}
++
++func TestList_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	_, err := s.List("..")
++	if err == nil {
++		t.Error("expected error for path traversal")
++	}
++}
++
++func TestReadWrite(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	data := []byte("hello world")
++	err := s.Write("test.txt", data)
++	if err != nil {
++		t.Fatalf("write error: %v", err)
++	}
++
++	got, err := s.Read("test.txt")
++	if err != nil {
++		t.Fatalf("read error: %v", err)
++	}
++	if string(got) != string(data) {
++		t.Errorf("got %q, want %q", got, data)
++	}
++}
++
++func TestRead_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	_, err := s.Read("../outside.txt")
++	if err == nil {
++		t.Error("expected error for path traversal")
++	}
++}
++
++func TestWrite_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	err := s.Write("../outside.txt", []byte("data"))
++	if err == nil {
++		t.Error("expected error for path traversal")
++	}
++}
++
++func TestDelete(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	os.WriteFile(filepath.Join(dir, "del.txt"), []byte("data"), 0644)
++
++	err := s.Delete("del.txt")
++	if err != nil {
++		t.Fatalf("delete error: %v", err)
++	}
++	if _, err := os.Stat(filepath.Join(dir, "del.txt")); !os.IsNotExist(err) {
++		t.Error("file should not exist after delete")
++	}
++}
++
++func TestDelete_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	err := s.Delete("../outside.txt")
++	if err == nil {
++		t.Error("expected error for path traversal")
++	}
++}
++
++func TestRename(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	os.WriteFile(filepath.Join(dir, "old.txt"), []byte("data"), 0644)
++
++	err := s.Rename("old.txt", "new.txt")
++	if err != nil {
++		t.Fatalf("rename error: %v", err)
++	}
++	if _, err := os.Stat(filepath.Join(dir, "old.txt")); !os.IsNotExist(err) {
++		t.Error("old file should not exist after rename")
++	}
++	if _, err := os.Stat(filepath.Join(dir, "new.txt")); os.IsNotExist(err) {
++		t.Error("new file should exist after rename")
++	}
++}
++
++func TestRename_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	err := s.Rename("old.txt", "../new.txt")
++	if err == nil {
++		t.Error("expected error for path traversal in dest")
++	}
++}
++
++func TestCopy(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	os.WriteFile(filepath.Join(dir, "src.txt"), []byte("copy data"), 0644)
++
++	err := s.Copy("src.txt", "dst.txt")
++	if err != nil {
++		t.Fatalf("copy error: %v", err)
++	}
++
++	srcData, _ := os.ReadFile(filepath.Join(dir, "src.txt"))
++	dstData, _ := os.ReadFile(filepath.Join(dir, "dst.txt"))
++	if string(srcData) != string(dstData) {
++		t.Error("copy content mismatch")
++	}
++}
++
++func TestCopy_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	err := s.Copy("../outside.txt", "inside.txt")
++	if err == nil {
++		t.Error("expected error for path traversal in source")
++	}
++}
++
++func TestMkdir(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	err := s.Mkdir("newdir/subdir")
++	if err != nil {
++		t.Fatalf("mkdir error: %v", err)
++	}
++	if _, err := os.Stat(filepath.Join(dir, "newdir/subdir")); os.IsNotExist(err) {
++		t.Error("directory should exist after mkdir")
++	}
++}
++
++func TestMkdir_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	err := s.Mkdir("../outside")
++	if err == nil {
++		t.Error("expected error for path traversal")
++	}
++}
++
++func TestThumbnail(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	imgPath := filepath.Join(dir, "test.png")
++	f, _ := os.Create(imgPath)
++	png.Encode(f, image.NewRGBA(image.Rect(0, 0, 400, 300)))
++	f.Close()
++
++	thumb, err := s.Thumbnail("test.png")
++	if err != nil {
++		t.Fatalf("thumbnail error: %v", err)
++	}
++	if len(thumb) == 0 {
++		t.Error("thumbnail should not be empty")
++	}
++}
++
++func TestThumbnail_SmallImage(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	imgPath := filepath.Join(dir, "small.png")
++	f, _ := os.Create(imgPath)
++	png.Encode(f, image.NewRGBA(image.Rect(0, 0, 10, 10)))
++	f.Close()
++
++	thumb, err := s.Thumbnail("small.png")
++	if err != nil {
++		t.Fatalf("thumbnail error: %v", err)
++	}
++	if len(thumb) == 0 {
++		t.Error("thumbnail should not be empty")
++	}
++}
++
++func TestThumbnail_NotFound(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	_, err := s.Thumbnail("nonexistent.png")
++	if err == nil {
++		t.Error("expected error for non-existent file")
++	}
++}
++
++func TestThumbnail_Traversal(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	_, err := s.Thumbnail("../outside.png")
++	if err == nil {
++		t.Error("expected error for path traversal")
++	}
++}
++
++func TestRootTraversal_viaSymlink(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	// Ensure symlinked paths outside root are still blocked
++	outside := t.TempDir()
++	linkPath := filepath.Join(dir, "link")
++	if err := os.Symlink(outside, linkPath); err != nil {
++		t.Skip("symlinks not supported on this system")
++	}
++
++	_, err := s.Read("link/../outside.txt")
++	if err == nil {
++		t.Error("expected error for traversal via symlink")
++	}
++}
++
++func TestSafePath_SameAsRoot(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	got, err := s.SafePath(".")
++	if err != nil {
++		t.Fatalf("unexpected error: %v", err)
++	}
++	if got != dir {
++		t.Errorf("got %q, want %q", got, dir)
++	}
++}
++
++func TestSafePath_WindowsBackslash(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	// On Windows, filepath.Clean handles backslashes
++	got, err := s.SafePath("subdir\\file.txt")
++	if err != nil {
++		t.Fatalf("unexpected error: %v", err)
++	}
++	// filepath.Clean converts \ to / on Windows, so we check prefix only
++	if !strings.HasPrefix(got, dir) {
++		t.Errorf("result %q should be under root %q", got, dir)
++	}
++}
++
++func TestRootIsCleaned(t *testing.T) {
++	s := NewService("/data/../data")
++	if !strings.HasSuffix(s.root, "data") {
++		t.Errorf("root should be cleaned, got %q", s.root)
++	}
++}
++
++func TestList_NonExistentDir(t *testing.T) {
++	dir := t.TempDir()
++	s := NewService(dir)
++
++	_, err := s.List("nonexistent")
++	if err == nil {
++		t.Error("expected error for non-existent directory")
++	}
++}

@@ -1,0 +1,357 @@
+557c736 feat: add auth system with password hashing and session middleware
+ backend/go.mod                     |   2 +-
+ backend/internal/auth/auth_test.go | 218 +++++++++++++++++++++++++++++++++++++
+ backend/internal/auth/password.go  |   7 ++
+ backend/internal/auth/session.go   |  52 +++++++++
+ backend/internal/db/sqlite.go      |   9 ++
+ 5 files changed, 287 insertions(+), 1 deletion(-)
+
+diff --git a/backend/go.mod b/backend/go.mod
+index 1b93aa9..62ddf47 100644
+--- a/backend/go.mod
++++ b/backend/go.mod
+@@ -1,20 +1,20 @@
+ module github.com/youruser/hermes-filebrowser
+ 
+ go 1.26.5
+ 
+ require (
++	github.com/google/uuid v1.6.0
+ 	golang.org/x/crypto v0.54.0
+ 	modernc.org/sqlite v1.53.0
+ )
+ 
+ require (
+ 	github.com/dustin/go-humanize v1.0.1 // indirect
+-	github.com/google/uuid v1.6.0 // indirect
+ 	github.com/mattn/go-isatty v0.0.20 // indirect
+ 	github.com/ncruces/go-strftime v1.0.0 // indirect
+ 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+ 	golang.org/x/sys v0.47.0 // indirect
+ 	modernc.org/libc v1.73.4 // indirect
+ 	modernc.org/mathutil v1.7.1 // indirect
+ 	modernc.org/memory v1.11.0 // indirect
+ )
+diff --git a/backend/internal/auth/auth_test.go b/backend/internal/auth/auth_test.go
+new file mode 100644
+index 0000000..308d47e
+--- /dev/null
++++ b/backend/internal/auth/auth_test.go
+@@ -0,0 +1,218 @@
++package auth
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/youruser/hermes-filebrowser/internal/db"
++	"golang.org/x/crypto/bcrypt"
++)
++
++func TestCheckPassword_Valid(t *testing.T) {
++	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
++	if err != nil {
++		t.Fatalf("bcrypt error: %v", err)
++	}
++	if !CheckPassword(string(hash), "correct-password") {
++		t.Error("CheckPassword returned false for correct password")
++	}
++}
++
++func TestCheckPassword_Invalid(t *testing.T) {
++	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
++	if err != nil {
++		t.Fatalf("bcrypt error: %v", err)
++	}
++	if CheckPassword(string(hash), "wrong-password") {
++		t.Error("CheckPassword returned true for wrong password")
++	}
++}
++
++func TestNewSessionToken_NotEmpty(t *testing.T) {
++	token, expiresAt := NewSessionToken()
++	if token == "" {
++		t.Error("token should not be empty")
++	}
++	if expiresAt.Before(time.Now()) {
++		t.Error("expiresAt should be in the future")
++	}
++}
++
++func TestNewSessionToken_Unique(t *testing.T) {
++	t1, _ := NewSessionToken()
++	t2, _ := NewSessionToken()
++	if t1 == t2 {
++		t.Error("tokens should be unique")
++	}
++}
++
++func TestGetUser_NilWhenNoUser(t *testing.T) {
++	r := httptest.NewRequest("GET", "/", nil)
++	u := GetUser(r)
++	if u != nil {
++		t.Error("GetUser should return nil when no user in context")
++	}
++}
++
++func TestSessionMiddleware_AuthorizationHeader(t *testing.T) {
++	d := setupDB(t)
++	defer d.Close()
++
++	user, err := d.CreateUser("testuser", string(mustHash("pass")), false)
++	if err != nil {
++		t.Fatalf("CreateUser error: %v", err)
++	}
++	err = d.CreateSession(user.ID, "test-token-123", time.Now().Add(24*time.Hour).Format(time.RFC3339))
++	if err != nil {
++		t.Fatalf("CreateSession error: %v", err)
++	}
++
++	var capturedUser *db.User
++	handler := SessionMiddleware(d)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		capturedUser = GetUser(r)
++	}))
++
++	req := httptest.NewRequest("GET", "/", nil)
++	req.Header.Set("Authorization", "Bearer test-token-123")
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	if capturedUser == nil {
++		t.Fatal("expected user to be set from Authorization header")
++	}
++	if capturedUser.Username != "testuser" {
++		t.Errorf("username = %q, want %q", capturedUser.Username, "testuser")
++	}
++}
++
++func TestSessionMiddleware_Cookie(t *testing.T) {
++	d := setupDB(t)
++	defer d.Close()
++
++	user, err := d.CreateUser("cookieuser", string(mustHash("pass")), false)
++	if err != nil {
++		t.Fatalf("CreateUser error: %v", err)
++	}
++	err = d.CreateSession(user.ID, "cookie-token-456", time.Now().Add(24*time.Hour).Format(time.RFC3339))
++	if err != nil {
++		t.Fatalf("CreateSession error: %v", err)
++	}
++
++	var capturedUser *db.User
++	handler := SessionMiddleware(d)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		capturedUser = GetUser(r)
++	}))
++
++	req := httptest.NewRequest("GET", "/", nil)
++	req.AddCookie(&http.Cookie{Name: "session", Value: "cookie-token-456"})
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	if capturedUser == nil {
++		t.Fatal("expected user to be set from cookie")
++	}
++	if capturedUser.Username != "cookieuser" {
++		t.Errorf("username = %q, want %q", capturedUser.Username, "cookieuser")
++	}
++}
++
++func TestSessionMiddleware_AuthorizationTakesPriority(t *testing.T) {
++	d := setupDB(t)
++	defer d.Close()
++
++	user1, _ := d.CreateUser("beareruser", string(mustHash("pass")), false)
++	user2, _ := d.CreateUser("cookieuser", string(mustHash("pass")), false)
++	d.CreateSession(user1.ID, "bearer-token", time.Now().Add(24*time.Hour).Format(time.RFC3339))
++	d.CreateSession(user2.ID, "cookie-token", time.Now().Add(24*time.Hour).Format(time.RFC3339))
++
++	var capturedUser *db.User
++	handler := SessionMiddleware(d)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		capturedUser = GetUser(r)
++	}))
++
++	req := httptest.NewRequest("GET", "/", nil)
++	req.Header.Set("Authorization", "Bearer bearer-token")
++	req.AddCookie(&http.Cookie{Name: "session", Value: "cookie-token"})
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	if capturedUser == nil || capturedUser.Username != "beareruser" {
++		t.Errorf("expected bearer user, got %v", capturedUser)
++	}
++}
++
++func TestSessionMiddleware_ExpiredToken(t *testing.T) {
++	d := setupDB(t)
++	defer d.Close()
++
++	user, _ := d.CreateUser("expireduser", string(mustHash("pass")), false)
++	d.CreateSession(user.ID, "expired-token", time.Now().Add(-1*time.Hour).Format(time.RFC3339))
++
++	var capturedUser *db.User
++	handler := SessionMiddleware(d)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		capturedUser = GetUser(r)
++	}))
++
++	req := httptest.NewRequest("GET", "/", nil)
++	req.Header.Set("Authorization", "Bearer expired-token")
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	if capturedUser != nil {
++		t.Error("expected no user for expired token")
++	}
++}
++
++func TestSessionMiddleware_InvalidToken(t *testing.T) {
++	d := setupDB(t)
++	defer d.Close()
++
++	var capturedUser *db.User
++	handler := SessionMiddleware(d)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		capturedUser = GetUser(r)
++	}))
++
++	req := httptest.NewRequest("GET", "/", nil)
++	req.Header.Set("Authorization", "Bearer nonexistent-token")
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	if capturedUser != nil {
++		t.Error("expected no user for invalid token")
++	}
++}
++
++func TestSessionMiddleware_NoToken(t *testing.T) {
++	d := setupDB(t)
++	defer d.Close()
++
++	var capturedUser *db.User
++	handler := SessionMiddleware(d)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		capturedUser = GetUser(r)
++	}))
++
++	req := httptest.NewRequest("GET", "/", nil)
++	handler.ServeHTTP(httptest.NewRecorder(), req)
++
++	if capturedUser != nil {
++		t.Error("expected no user when no token provided")
++	}
++}
++
++func setupDB(t *testing.T) *db.DB {
++	t.Helper()
++	path := filepath.Join(t.TempDir(), "auth_test.db")
++	d, err := db.New(path)
++	if err != nil {
++		t.Fatalf("db.New() error = %v", err)
++	}
++	return d
++}
++
++func mustHash(password string) []byte {
++	h, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
++	if err != nil {
++		panic(err)
++	}
++	return h
++}
++
++
+diff --git a/backend/internal/auth/password.go b/backend/internal/auth/password.go
+new file mode 100644
+index 0000000..4237555
+--- /dev/null
++++ b/backend/internal/auth/password.go
+@@ -0,0 +1,7 @@
++package auth
++
++import "golang.org/x/crypto/bcrypt"
++
++func CheckPassword(hash, password string) bool {
++	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
++}
+diff --git a/backend/internal/auth/session.go b/backend/internal/auth/session.go
+new file mode 100644
+index 0000000..d8322ca
+--- /dev/null
++++ b/backend/internal/auth/session.go
+@@ -0,0 +1,52 @@
++package auth
++
++import (
++	"context"
++	"net/http"
++	"strings"
++	"time"
++
++	"github.com/google/uuid"
++	"github.com/youruser/hermes-filebrowser/internal/db"
++)
++
++type contextKey string
++
++const userKey contextKey = "user"
++
++func NewSessionToken() (string, time.Time) {
++	return uuid.New().String(), time.Now().Add(24 * time.Hour)
++}
++
++func GetUser(r *http.Request) *db.User {
++	u, _ := r.Context().Value(userKey).(*db.User)
++	return u
++}
++
++func SessionMiddleware(database *db.DB) func(http.Handler) http.Handler {
++	return func(next http.Handler) http.Handler {
++		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++			token := ""
++			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
++				token = strings.TrimPrefix(h, "Bearer ")
++			}
++			if token == "" {
++				if c, err := r.Cookie("session"); err == nil {
++					token = c.Value
++				}
++			}
++			if token != "" {
++				session, err := database.GetSessionByToken(token)
++				if err == nil {
++					expiresAt, _ := time.Parse(time.RFC3339, session.ExpiresAt)
++					if time.Now().Before(expiresAt) {
++						user, _ := database.GetUserByID(session.UserID)
++						ctx := context.WithValue(r.Context(), userKey, user)
++						r = r.WithContext(ctx)
++					}
++				}
++			}
++			next.ServeHTTP(w, r)
++		})
++	}
++}
+diff --git a/backend/internal/db/sqlite.go b/backend/internal/db/sqlite.go
+index bd20560..0c9d5ac 100644
+--- a/backend/internal/db/sqlite.go
++++ b/backend/internal/db/sqlite.go
+@@ -94,14 +94,23 @@ func (d *DB) CreateSession(userID int64, token, expiresAt string) error {
+ 
+ func (d *DB) GetSessionByToken(token string) (*Session, error) {
+ 	s := &Session{}
+ 	err := d.conn.QueryRow("SELECT id, user_id, token, expires_at FROM sessions WHERE token = ?", token).Scan(&s.ID, &s.UserID, &s.Token, &s.ExpiresAt)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	return s, nil
+ }
+ 
++func (d *DB) GetUserByID(id int64) (*User, error) {
++	u := &User{}
++	err := d.conn.QueryRow("SELECT id, username, password_hash, read_only FROM users WHERE id = ?", id).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.ReadOnly)
++	if err != nil {
++		return nil, err
++	}
++	return u, nil
++}
++
+ func (d *DB) DeleteSession(token string) error {
+ 	_, err := d.conn.Exec("DELETE FROM sessions WHERE token = ?", token)
+ 	return err
+ }
