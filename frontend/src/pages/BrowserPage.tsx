@@ -12,7 +12,7 @@ import PreviewPane from '../components/PreviewPane'
 import { PromptModal, ConfirmModal } from '../components/Modal'
 
 export default function BrowserPage() {
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   const [path, setPath] = useState('')
   const [files, setFiles] = useState<any[]>([])
@@ -23,8 +23,8 @@ export default function BrowserPage() {
   const [modalValue, setModalValue] = useState('')
 
   useEffect(() => {
-    if (!isAuthenticated) navigate('/login')
-  }, [isAuthenticated])
+    if (!loading && !isAuthenticated) navigate('/login')
+  }, [isAuthenticated, loading])
 
   const fetchFiles = useCallback(async (p: string) => {
     try {
@@ -122,6 +122,12 @@ export default function BrowserPage() {
       fetchFiles(path)
     } catch { /* errors shown via toast in future */ }
   }
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-[var(--color-bg)]">
+      <div className="text-[var(--color-text-muted)] text-sm">Loading...</div>
+    </div>
+  )
 
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg)]">

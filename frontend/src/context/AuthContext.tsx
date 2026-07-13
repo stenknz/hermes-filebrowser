@@ -10,6 +10,7 @@ interface User {
 interface AuthContextType {
   user: User | null
   token: string | null
+  loading: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
@@ -20,10 +21,13 @@ const AuthContext = createContext<AuthContextType>(null!)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (token) {
-      api.get('/api/me').then(res => setUser(res.user)).catch(() => logout())
+      api.get('/api/me').then(res => { setUser(res.user); setLoading(false) }).catch(() => { logout(); setLoading(false) })
+    } else {
+      setLoading(false)
     }
   }, [token])
 
@@ -42,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )
