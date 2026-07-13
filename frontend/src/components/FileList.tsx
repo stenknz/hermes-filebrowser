@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import FileRow from './FileRow'
 
 interface FileInfo {
@@ -14,10 +13,11 @@ interface Props {
   onNavigate: (path: string) => void
   sort: { key: string; dir: 'asc' | 'desc' }
   onSort: (key: string) => void
+  onSelect?: (path: string | null) => void
+  selectedFile?: string | null
 }
 
-export default function FileList({ files, onNavigate, sort, onSort }: Props) {
-  const [selected, setSelected] = useState<string | null>(null)
+export default function FileList({ files, onNavigate, sort, onSort, onSelect, selectedFile }: Props) {
   const sorted = [...files].sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
     const dir = sort.dir === 'asc' ? 1 : -1
@@ -44,7 +44,7 @@ export default function FileList({ files, onNavigate, sort, onSort }: Props) {
         <div className="w-24" />
       </div>
       {sorted.map(f => (
-        <FileRow key={f.path} file={f} onNavigate={onNavigate} onSelect={setSelected} selected={selected === f.path} />
+        <FileRow key={f.path} file={f} onNavigate={onNavigate} onSelect={onSelect || (() => {})} selected={(selectedFile || '') === f.path} />
       ))}
     </div>
   )
