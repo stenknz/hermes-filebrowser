@@ -71,13 +71,20 @@ func (d *DB) EnsureAdmin(username, password string) error {
 	if err != nil {
 		return err
 	}
-	var count int
-	if err := d.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
+	updated, err := d.conn.Exec("UPDATE users SET password_hash = ? WHERE username = ? AND role = ?", string(hash), username, RoleAdmin)
+	if err != nil {
 		return err
 	}
+	n, _ := updated.RowsAffected()
+	if n > 0 {
+		return nil // updated existing admin user's password
+	}
+	// No admin found with this username — check if any admin exists
+	var count int
+	d.conn.QueryRow("SELECT COUNT(*) FROM users WHERE role = ?", RoleAdmin).Scan(&count)
 	if count > 0 {
-		// Update password if admin user already exists with this username
-		_, err = d.conn.Exec("UPDATE users SET password_hash = ? WHERE username = ? AND role = ?", string(hash), username, RoleAdmin)
+		// Rename first admin to match env var username and update password
+		_, err = d.conn.Exec("UPDATE users SET username = ?, password_hash = ? WHERE id = (SELECT id FROM users WHERE role = ? ORDER BY id LIMIT 1)", username, string(hash), RoleAdmin)
 		return err
 	}
 	_, err = d.conn.Exec("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", username, string(hash), RoleAdmin)
