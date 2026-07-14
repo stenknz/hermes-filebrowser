@@ -29,6 +29,12 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 
 	authMw := auth.SessionMiddleware(database)
 
+	// Public routes
+	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok","version":"1.0.0"}`))
+	})
+
 	// Auth routes (no auth required)
 	ah := NewAuthHandler(database, cfg)
 	r.Post("/api/login", ah.Login)

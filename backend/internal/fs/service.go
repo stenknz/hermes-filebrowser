@@ -65,11 +65,20 @@ func (s *Service) SafePath(path string) (string, error) {
 	return resolvedPath, nil
 }
 
-var hiddenPrefixes = []string{"filebrowser.db"}
+var hiddenPrefixes = []string{"filebrowser.db", "filebrowser.db-"}
+var hiddenSuffixes = []string{".db-shm", ".db-wal"}
 
 func isHidden(name string) bool {
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
 	for _, prefix := range hiddenPrefixes {
 		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	for _, suffix := range hiddenSuffixes {
+		if strings.HasSuffix(name, suffix) {
 			return true
 		}
 	}
@@ -107,6 +116,9 @@ func (s *Service) List(dirPath string) ([]FileInfo, error) {
 }
 
 func (s *Service) Read(filePath string) ([]byte, error) {
+	if isHidden(filepath.Base(filePath)) {
+		return nil, os.ErrPermission
+	}
 	fullPath, err := s.SafePath(filePath)
 	if err != nil {
 		return nil, err
@@ -117,6 +129,9 @@ func (s *Service) Read(filePath string) ([]byte, error) {
 func (s *Service) Write(filePath string, data []byte) error {
 	if filePath == "" {
 		return ErrIsRoot
+	}
+	if isHidden(filepath.Base(filePath)) {
+		return os.ErrPermission
 	}
 	fullPath, err := s.SafePath(filePath)
 	if err != nil {
@@ -129,6 +144,9 @@ func (s *Service) Delete(filePath string) error {
 	if filePath == "" {
 		return ErrIsRoot
 	}
+	if isHidden(filepath.Base(filePath)) {
+		return os.ErrPermission
+	}
 	fullPath, err := s.SafePath(filePath)
 	if err != nil {
 		return err
@@ -139,6 +157,9 @@ func (s *Service) Delete(filePath string) error {
 func (s *Service) Rename(oldPath, newPath string) error {
 	if oldPath == "" || newPath == "" {
 		return ErrIsRoot
+	}
+	if isHidden(filepath.Base(oldPath)) || isHidden(filepath.Base(newPath)) {
+		return os.ErrPermission
 	}
 	fullOld, err := s.SafePath(oldPath)
 	if err != nil {
@@ -154,6 +175,9 @@ func (s *Service) Rename(oldPath, newPath string) error {
 func (s *Service) Copy(src, dst string) error {
 	if src == "" || dst == "" {
 		return ErrIsRoot
+	}
+	if isHidden(filepath.Base(src)) || isHidden(filepath.Base(dst)) {
+		return os.ErrPermission
 	}
 	fullSrc, err := s.SafePath(src)
 	if err != nil {
@@ -191,6 +215,9 @@ func (s *Service) Mkdir(dirPath string) error {
 }
 
 func (s *Service) Thumbnail(filePath string) ([]byte, error) {
+	if isHidden(filepath.Base(filePath)) {
+		return nil, os.ErrPermission
+	}
 	fullPath, err := s.SafePath(filePath)
 	if err != nil {
 		return nil, err

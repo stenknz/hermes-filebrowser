@@ -140,7 +140,13 @@ func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 	}
 	filePath := r.URL.Query().Get("path")
 	if filePath == "" {
-		http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
+		var body struct{ Path string `json:"path"` }
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			filePath = body.Path
+		}
+	}
+	if filePath == "" {
+		http.Error(w, `{"error":"path required — use ?path= query or {\"path\":\"...\"} body"}`, http.StatusBadRequest)
 		return
 	}
 	if err := h.svc.Delete(filePath); err != nil {

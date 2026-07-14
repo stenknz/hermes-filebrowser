@@ -30,6 +30,10 @@ func (h *fileHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Read(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
+		return
+	}
 	data, err := h.svc.Read(filePath)
 	if err != nil {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
