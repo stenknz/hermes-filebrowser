@@ -13,6 +13,12 @@ import (
 type contextKey string
 
 const userKey contextKey = "user"
+const apiTokenKey contextKey = "apiToken"
+
+func IsApiTokenAuth(r *http.Request) bool {
+	v, _ := r.Context().Value(apiTokenKey).(bool)
+	return v
+}
 
 func NewSessionToken() (string, time.Time) {
 	return uuid.New().String(), time.Now().Add(24 * time.Hour)
@@ -60,7 +66,10 @@ func SessionMiddleware(database *db.DB) func(http.Handler) http.Handler {
 					user, _ := database.GetUserByID(apiToken.UserID)
 					if user != nil {
 						ctx := context.WithValue(r.Context(), userKey, user)
+						ctx = context.WithValue(ctx, apiTokenKey, true)
 						r = r.WithContext(ctx)
+						next.ServeHTTP(w, r)
+						return
 					}
 				}
 			}

@@ -25,17 +25,17 @@ func (h *authHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid body"}`, http.StatusBadRequest)
+		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
 	user, err := h.db.GetUserByUsername(req.Username)
 	if err != nil || !auth.CheckPassword(user.PasswordHash, req.Password) {
-		http.Error(w, `{"error":"invalid credentials"}`, http.StatusUnauthorized)
+		jsonError(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
 	token, expiresAt := auth.NewSessionToken()
 	if err := h.db.CreateSession(user.ID, token, expiresAt.Format(time.RFC3339)); err != nil {
-		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -66,7 +66,7 @@ func (h *authHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *authHandler) Me(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
 	if user == nil {
-		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		jsonError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"user": user})

@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/stenknz/hermes-filebrowser/internal/auth"
@@ -31,7 +30,7 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer fb_") {
+		if auth.IsApiTokenAuth(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -67,20 +66,10 @@ func jsonError(w http.ResponseWriter, msg string, status int) {
 	w.Write([]byte(`{"error":"` + msg + `"}`))
 }
 
-type jsonResponseWriter struct {
-	http.ResponseWriter
-}
-
-func (w *jsonResponseWriter) WriteHeader(status int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.ResponseWriter.WriteHeader(status)
-}
-
 func JSONContentType(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		jw := &jsonResponseWriter{ResponseWriter: w}
-		jw.Header().Set("Content-Type", "application/json")
-		next.ServeHTTP(jw, r)
+		w.Header().Set("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
 	})
 }
 

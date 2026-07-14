@@ -43,8 +43,8 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(authMw)
 		r.Use(requireAuth)
-		r.Use(JSONContentType)
 		r.Use(CSRFMiddleware)
+		r.Use(JSONContentType)
 		r.Post("/api/logout", ah.Logout)
 		r.Get("/api/me", ah.Me)
 

@@ -24,7 +24,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, `{"error":"cannot read body"}`, http.StatusBadRequest)
+		jsonError(w, "cannot read body", http.StatusBadRequest)
 		return
 	}
 	var req struct {
@@ -38,7 +38,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		NewPath     string `json:"newPath"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	// Support both "path" and "name" fields
@@ -48,69 +48,69 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	switch req.Action {
 	case "mkdir":
 		if user.ReadOnly() {
-			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+			jsonError(w, "read-only user", http.StatusForbidden)
 			return
 		}
 		if req.Path == "" {
-			http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
+			jsonError(w, "path required", http.StatusBadRequest)
 			return
 		}
 		if err := h.svc.Mkdir(req.Path); err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
 	case "write":
 		if user.ReadOnly() {
-			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+			jsonError(w, "read-only user", http.StatusForbidden)
 			return
 		}
 		if req.Path == "" {
-			http.Error(w, `{"error":"path required"}`, http.StatusBadRequest)
+			jsonError(w, "path required", http.StatusBadRequest)
 			return
 		}
 		if err := h.svc.Write(req.Path, []byte(req.Content)); err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
 	case "copy":
 		if user.ReadOnly() {
-			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+			jsonError(w, "read-only user", http.StatusForbidden)
 			return
 		}
 		if req.Source == "" || req.Destination == "" {
-			http.Error(w, `{"error":"source and destination required"}`, http.StatusBadRequest)
+			jsonError(w, "source and destination required", http.StatusBadRequest)
 			return
 		}
 		if err := h.svc.Copy(req.Source, req.Destination); err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 	case "move":
 		if user.ReadOnly() {
-			http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+			jsonError(w, "read-only user", http.StatusForbidden)
 			return
 		}
 		if req.Source == "" || req.Destination == "" {
-			http.Error(w, `{"error":"source and destination required"}`, http.StatusBadRequest)
+			jsonError(w, "source and destination required", http.StatusBadRequest)
 			return
 		}
 		if err := h.svc.Rename(req.Source, req.Destination); err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 	default:
-		http.Error(w, `{"error":"unknown action"}`, http.StatusBadRequest)
+		jsonError(w, "unknown action", http.StatusBadRequest)
 	}
 }
 
 func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
 	if user.ReadOnly() {
-		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+		jsonError(w, "read-only user", http.StatusForbidden)
 		return
 	}
 	var req struct {
@@ -118,15 +118,15 @@ func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 		NewPath string `json:"newPath"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if req.OldPath == "" || req.NewPath == "" {
-		http.Error(w, `{"error":"oldPath and newPath required"}`, http.StatusBadRequest)
+		jsonError(w, "oldPath and newPath required", http.StatusBadRequest)
 		return
 	}
 	if err := h.svc.Rename(req.OldPath, req.NewPath); err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -135,7 +135,7 @@ func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
 	if user.ReadOnly() {
-		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+		jsonError(w, "read-only user", http.StatusForbidden)
 		return
 	}
 	filePath := r.URL.Query().Get("path")
@@ -150,7 +150,7 @@ func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := h.svc.Delete(filePath); err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -159,28 +159,28 @@ func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 func (h *resourcesHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
 	if user.ReadOnly() {
-		http.Error(w, `{"error":"read-only user"}`, http.StatusForbidden)
+		jsonError(w, "read-only user", http.StatusForbidden)
 		return
 	}
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, `{"error":"invalid multipart form"}`, http.StatusBadRequest)
+		jsonError(w, "invalid multipart form", http.StatusBadRequest)
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, `{"error":"missing file field"}`, http.StatusBadRequest)
+		jsonError(w, "missing file field", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 	data, err := io.ReadAll(file)
 	if err != nil {
-		http.Error(w, `{"error":"failed to read file"}`, http.StatusInternalServerError)
+		jsonError(w, "failed to read file", http.StatusInternalServerError)
 		return
 	}
 	dirPath := r.URL.Query().Get("path")
 	targetPath := filepath.Join(dirPath, header.Filename)
 	if err := h.svc.Write(targetPath, data); err != nil {
-		http.Error(w, `{"error":"write failed"}`, http.StatusInternalServerError)
+		jsonError(w, "write failed", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -197,12 +197,12 @@ func (h *resourcesHandler) HandleRaw(w http.ResponseWriter, r *http.Request) {
 	filePath = strings.TrimPrefix(filePath, "/")
 	// Reject path traversal in URL path
 	if strings.Contains(filePath, "..") {
-		http.Error(w, `{"error":"invalid path"}`, http.StatusBadRequest)
+		jsonError(w, "invalid path", http.StatusBadRequest)
 		return
 	}
 	data, err := h.svc.Read(filePath)
 	if err != nil {
-		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
 	ext := strings.ToLower(filepath.Ext(filePath))

@@ -40,13 +40,13 @@ func setupTestEnv(t *testing.T) (*db.DB, *config.Config, string) {
 	return d, cfg, root
 }
 
-func mustCreateUser(t *testing.T, d *db.DB, username, password string, readOnly bool) *db.User {
+func mustCreateUser(t *testing.T, d *db.DB, username, password string, role db.Role) *db.User {
 	t.Helper()
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		t.Fatalf("bcrypt error: %v", err)
 	}
-	user, err := d.CreateUser(username, string(hash), readOnly)
+	user, err := d.CreateUser(username, string(hash), role)
 	if err != nil {
 		t.Fatalf("CreateUser error: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestGenerateCSRFToken_NotEmpty(t *testing.T) {
 func TestLogin_Valid(t *testing.T) {
 	d, cfg, _ := setupTestEnv(t)
 	defer d.Close()
-	mustCreateUser(t, d, "admin", "admin123", false)
+	mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 
 	h := NewAuthHandler(d, cfg)
 	body := `{"username":"admin","password":"admin123"}`
@@ -193,7 +193,7 @@ func TestLogin_Valid(t *testing.T) {
 func TestLogin_InvalidCredentials(t *testing.T) {
 	d, cfg, _ := setupTestEnv(t)
 	defer d.Close()
-	mustCreateUser(t, d, "admin", "admin123", false)
+	mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 
 	h := NewAuthHandler(d, cfg)
 	body := `{"username":"admin","password":"wrong"}`
@@ -225,7 +225,7 @@ func TestLogin_InvalidBody(t *testing.T) {
 func TestLogout(t *testing.T) {
 	d, cfg, _ := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	h := NewAuthHandler(d, cfg)
@@ -257,7 +257,7 @@ func TestLogout(t *testing.T) {
 func TestMe_Authenticated(t *testing.T) {
 	d, cfg, _ := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	h := NewAuthHandler(d, cfg)
@@ -300,7 +300,7 @@ func TestMe_Unauthenticated(t *testing.T) {
 func TestFileList(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -336,7 +336,7 @@ func TestFileList(t *testing.T) {
 func TestFileRead(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -367,7 +367,7 @@ func TestFileRead(t *testing.T) {
 func TestFileRead_NotFound(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -390,7 +390,7 @@ func TestFileRead_NotFound(t *testing.T) {
 func TestFileThumbnail(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -424,7 +424,7 @@ func TestFileThumbnail(t *testing.T) {
 func TestFileUpload(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -463,7 +463,7 @@ func TestFileUpload(t *testing.T) {
 func TestFileUpload_ReadOnly(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "readonly", "pass", true)
+	user := mustCreateUser(t, d, "readonly", "pass", db.RoleViewer)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -487,7 +487,7 @@ func TestFileUpload_ReadOnly(t *testing.T) {
 func TestCreateDir(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -513,7 +513,7 @@ func TestCreateDir(t *testing.T) {
 func TestCreateFile(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -541,7 +541,7 @@ func TestCreateFile(t *testing.T) {
 func TestRename(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -573,7 +573,7 @@ func TestRename(t *testing.T) {
 func TestDelete(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -601,7 +601,7 @@ func TestDelete(t *testing.T) {
 func TestCopy(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -632,7 +632,7 @@ func TestCopy(t *testing.T) {
 func TestMove(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -665,7 +665,7 @@ func TestMove(t *testing.T) {
 func TestReadOnlyBlocksWrite(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "readonly", "pass", true)
+	user := mustCreateUser(t, d, "readonly", "pass", db.RoleViewer)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -740,7 +740,7 @@ func TestReadOnlyBlocksWrite(t *testing.T) {
 func TestSearch(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -776,7 +776,7 @@ func TestSearch(t *testing.T) {
 func TestSearch_MissingQuery(t *testing.T) {
 	d, _, root := setupTestEnv(t)
 	defer d.Close()
-	user := mustCreateUser(t, d, "admin", "admin123", false)
+	user := mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 	token, _ := mustCreateSession(t, d, user.ID)
 
 	svc, err := fs.NewService(root)
@@ -800,7 +800,7 @@ func TestSearch_MissingQuery(t *testing.T) {
 func TestNewRouter(t *testing.T) {
 	d, cfg, _ := setupTestEnv(t)
 	defer d.Close()
-	mustCreateUser(t, d, "admin", "admin123", false)
+	mustCreateUser(t, d, "admin", "admin123", db.RoleEditor)
 
 	router := NewRouter(d, cfg)
 	if router == nil {

@@ -20,12 +20,12 @@ func (h *searchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	basePath := r.URL.Query().Get("path")
 	if q == "" {
-		http.Error(w, `{"error":"missing query"}`, http.StatusBadRequest)
+		jsonError(w, "missing query", http.StatusBadRequest)
 		return
 	}
 	entries, err := h.svc.List(basePath)
 	if err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	var results []fs.FileInfo
