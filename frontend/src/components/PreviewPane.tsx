@@ -62,7 +62,6 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
   const isVideo = VIDEO_EXTS.includes(ext || '')
   const isArchive = ARCHIVE_EXTS.includes(ext || '')
   const isPdf = ext === 'pdf'
-  const isHeic = ext === 'heic'
   const canEdit = isCode || isText || isMd
   const rawUrl = filePath ? `/api/files/raw?path=${encodeURIComponent(filePath)}` : ''
 
@@ -116,12 +115,12 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         <div className="flex items-center gap-1 shrink-0">
           {canEdit && !editing && <button onClick={() => { setEditContent(data || ''); setEditing(true) }} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiEdit3 className="w-3 h-3" /> Edit</button>}
           {canEdit && editing && <><button onClick={handleSave} disabled={saving} className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white transition-colors"><FiSave className="w-3 h-3" /> Save</button><button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiX className="w-3 h-3" /></button></>}
-          {!canEdit && !isImage && <a href={rawUrl} download={fileName} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiDownload className="w-3 h-3" /> Download</a>}
+          {!canEdit && <a href={rawUrl} download={fileName} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiDownload className="w-3 h-3" /> Download</a>}
         </div>
       </div>
       <div className={`p-4 ${lightbox ? 'hidden' : ''}`}>
         {isImage && data && <img src={data} alt={fileName} className="max-h-48 rounded cursor-pointer hover:opacity-90" onClick={() => setLightbox(true)} />}
-        {isHeic && <div className="text-sm text-[var(--color-text-muted)] p-4 text-center">HEIC preview not supported — <a href={rawUrl} download={fileName} className="text-[var(--color-accent)] underline">Download</a></div>}
+
         {isPdf && <Document file={rawUrl}><Page pageNumber={1} width={400} /></Document>}
         {isAudio && data && <audio controls src={data} className="w-full max-w-md" />}
         {isVideo && data && <video controls src={data} className="max-h-48 rounded" />}
