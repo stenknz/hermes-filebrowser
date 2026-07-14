@@ -9,8 +9,6 @@ async function request(method: string, url: string, body?: unknown) {
   const headers: Record<string, string> = {
     'X-CSRF-Token': getCSRFToken(),
   }
-  const token = localStorage.getItem('token')
-  if (token) headers['Authorization'] = `Bearer ${token}`
   if (body && !(body instanceof FormData)) {
     headers['Content-Type'] = 'application/json'
   }

@@ -55,7 +55,7 @@ func TestSafePath_AbsolutePath(t *testing.T) {
 	}
 
 	// absolute paths that are outside root should fail
-	_, err = s.SafePath("C:\\windows\\system32")
+	_, err = s.SafePath("/etc/passwd")
 	if err == nil {
 		t.Error("expected error for absolute path outside root")
 	}

@@ -22,15 +22,15 @@ func TestCreateAndGetUser(t *testing.T) {
 	}
 	defer d.Close()
 
-	user, err := d.CreateUser("testuser", "hash123", false)
+	user, err := d.CreateUser("testuser", "hash123", RoleViewer)
 	if err != nil {
 		t.Fatalf("CreateUser() error = %v", err)
 	}
 	if user.Username != "testuser" {
 		t.Errorf("username = %q, want %q", user.Username, "testuser")
 	}
-	if user.ReadOnly != false {
-		t.Errorf("readOnly = %v, want false", user.ReadOnly)
+	if user.Role != RoleViewer {
+		t.Errorf("role = %q, want %q", user.Role, RoleViewer)
 	}
 	if user.ID == 0 {
 		t.Errorf("ID should not be zero")
@@ -53,7 +53,7 @@ func TestCreateAndGetSession(t *testing.T) {
 	}
 	defer d.Close()
 
-	user, err := d.CreateUser("sessionuser", "hash", false)
+	user, err := d.CreateUser("sessionuser", "hash", RoleViewer)
 	if err != nil {
 		t.Fatalf("CreateUser() error = %v", err)
 	}
@@ -80,7 +80,7 @@ func TestDeleteSession(t *testing.T) {
 	}
 	defer d.Close()
 
-	user, _ := d.CreateUser("deleteuser", "hash", false)
+	user, _ := d.CreateUser("deleteuser", "hash", RoleViewer)
 	d.CreateSession(user.ID, "token-delete", "2025-01-01T00:00:00Z")
 
 	err = d.DeleteSession("token-delete")
@@ -148,8 +148,8 @@ func TestDuplicateUser(t *testing.T) {
 	}
 	defer d.Close()
 
-	d.CreateUser("dupuser", "hash1", false)
-	_, err = d.CreateUser("dupuser", "hash2", false)
+	d.CreateUser("dupuser", "hash1", RoleViewer)
+	_, err = d.CreateUser("dupuser", "hash2", RoleViewer)
 	if err == nil {
 		t.Error("expected error for duplicate user")
 	}

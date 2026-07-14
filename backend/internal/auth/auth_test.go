@@ -61,7 +61,7 @@ func TestSessionMiddleware_AuthorizationHeader(t *testing.T) {
 	d := setupDB(t)
 	defer d.Close()
 
-	user, err := d.CreateUser("testuser", string(mustHash("pass")), false)
+	user, err := d.CreateUser("testuser", string(mustHash("pass")), db.RoleViewer)
 	if err != nil {
 		t.Fatalf("CreateUser error: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestSessionMiddleware_Cookie(t *testing.T) {
 	d := setupDB(t)
 	defer d.Close()
 
-	user, err := d.CreateUser("cookieuser", string(mustHash("pass")), false)
+	user, err := d.CreateUser("cookieuser", string(mustHash("pass")), db.RoleViewer)
 	if err != nil {
 		t.Fatalf("CreateUser error: %v", err)
 	}
@@ -121,8 +121,8 @@ func TestSessionMiddleware_AuthorizationTakesPriority(t *testing.T) {
 	d := setupDB(t)
 	defer d.Close()
 
-	user1, _ := d.CreateUser("beareruser", string(mustHash("pass")), false)
-	user2, _ := d.CreateUser("cookieuser", string(mustHash("pass")), false)
+	user1, _ := d.CreateUser("beareruser", string(mustHash("pass")), db.RoleViewer)
+	user2, _ := d.CreateUser("cookieuser", string(mustHash("pass")), db.RoleViewer)
 	d.CreateSession(user1.ID, "bearer-token", time.Now().Add(24*time.Hour).Format(time.RFC3339))
 	d.CreateSession(user2.ID, "cookie-token", time.Now().Add(24*time.Hour).Format(time.RFC3339))
 
@@ -145,7 +145,7 @@ func TestSessionMiddleware_ExpiredToken(t *testing.T) {
 	d := setupDB(t)
 	defer d.Close()
 
-	user, _ := d.CreateUser("expireduser", string(mustHash("pass")), false)
+	user, _ := d.CreateUser("expireduser", string(mustHash("pass")), db.RoleViewer)
 	d.CreateSession(user.ID, "expired-token", time.Now().Add(-1*time.Hour).Format(time.RFC3339))
 
 	var capturedUser *db.User

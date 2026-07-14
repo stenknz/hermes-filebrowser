@@ -114,8 +114,12 @@ func (d *DB) ListUsers() ([]*User, error) {
 }
 
 func (d *DB) DeleteUser(id int64) error {
-	d.conn.Exec("DELETE FROM sessions WHERE user_id = ?", id)
-	d.conn.Exec("DELETE FROM api_tokens WHERE user_id = ?", id)
+	if _, err := d.conn.Exec("DELETE FROM sessions WHERE user_id = ?", id); err != nil {
+		return err
+	}
+	if _, err := d.conn.Exec("DELETE FROM api_tokens WHERE user_id = ?", id); err != nil {
+		return err
+	}
 	_, err := d.conn.Exec("DELETE FROM users WHERE id = ?", id)
 	return err
 }
@@ -193,7 +197,7 @@ func (d *DB) ListApiTokens(userID int64) ([]*ApiToken, error) {
 	return tokens, nil
 }
 
-func (d *DB) DeleteApiToken(id int64) error {
-	_, err := d.conn.Exec("DELETE FROM api_tokens WHERE id = ?", id)
+func (d *DB) DeleteApiToken(id, userID int64) error {
+	_, err := d.conn.Exec("DELETE FROM api_tokens WHERE id = ? AND user_id = ?", id, userID)
 	return err
 }

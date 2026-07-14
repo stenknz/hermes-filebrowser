@@ -3,6 +3,7 @@ package api
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -15,9 +16,7 @@ func requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := auth.GetUser(r)
 		if user == nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"unauthorized"}`))
+			jsonError(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -36,16 +35,12 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 		}
 		cookie, err := r.Cookie("csrf_token")
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(`{"error":"missing CSRF cookie"}`))
+			jsonError(w, "missing CSRF cookie", http.StatusForbidden)
 			return
 		}
 		header := r.Header.Get("X-CSRF-Token")
 		if header == "" || header != cookie.Value {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(`{"error":"CSRF token mismatch"}`))
+			jsonError(w, "CSRF token mismatch", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -63,7 +58,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 func jsonError(w http.ResponseWriter, msg string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	w.Write([]byte(`{"error":"` + msg + `"}`))
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
 func JSONContentType(next http.Handler) http.Handler {
@@ -75,7 +70,9 @@ func JSONContentType(next http.Handler) http.Handler {
 
 func GenerateCSRFToken() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("failed to generate CSRF token: " + err.Error())
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -98,7 +95,6 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://unpkg.com; worker-src 'self' blob:")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
 		next.ServeHTTP(w, r)
 	})
 }

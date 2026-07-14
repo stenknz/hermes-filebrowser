@@ -35,10 +35,14 @@ function renderMarkdown(text: string): string {
   return '<p class="mb-2">' + html + '</p>'
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 function renderCode(text: string): string {
   const lines = text.split('\n')
   return lines.map((line) =>
-    `<span class="line-number"></span><span>${line || ' '}</span>`
+    `<span class="line-number"></span><span>${escapeHtml(line) || ' '}</span>`
   ).join('\n')
 }
 
@@ -94,7 +98,7 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
     try {
       await fetch(`/api/files/file`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.cookie.match(/(?:^| )csrf_token=([^;]+)/)?.[1] || '', 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.cookie.match(/(?:^| )csrf_token=([^;]+)/)?.[1] || '' },
         body: JSON.stringify({ path: filePath, content: editContent })
       })
       setEditing(false)

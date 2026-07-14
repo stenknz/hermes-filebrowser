@@ -9,7 +9,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null
-  token: string | null
   loading: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => void
@@ -22,33 +21,29 @@ const AuthContext = createContext<AuthContextType>(null!)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (token) {
-      api.get('/api/me').then(res => { setUser(res.user); setLoading(false) }).catch(() => { logout(); setLoading(false) })
-    } else {
+    api.get('/api/me').then(res => {
+      setUser(res.user)
       setLoading(false)
-    }
-  }, [token])
+    }).catch(() => {
+      setLoading(false)
+    })
+  }, [])
 
   async function login(username: string, password: string) {
     const res = await api.post('/api/login', { username, password })
-    localStorage.setItem('token', res.token)
-    setToken(res.token)
     setUser(res.user)
   }
 
   function logout() {
     api.post('/api/logout').catch(() => {})
-    localStorage.removeItem('token')
-    setToken(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user, isAdmin: user?.role === 'admin', readOnly: user?.role === 'viewer' }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user, isAdmin: user?.role === 'admin', readOnly: user?.role === 'viewer' }}>
       {children}
     </AuthContext.Provider>
   )

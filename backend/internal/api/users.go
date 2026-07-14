@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/stenknz/hermes-filebrowser/internal/auth"
 	"github.com/stenknz/hermes-filebrowser/internal/db"
@@ -55,7 +56,12 @@ func (h *usersHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Role != db.RoleAdmin && req.Role != db.RoleEditor && req.Role != db.RoleViewer {
-		req.Role = db.RoleViewer
+		jsonError(w, "invalid role", http.StatusBadRequest)
+		return
+	}
+	if strings.Contains(req.HomePath, "..") {
+		jsonError(w, "invalid home path", http.StatusBadRequest)
+		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -147,7 +153,7 @@ func (h *usersHandler) DeleteApiToken(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.DeleteApiToken(req.ID); err != nil {
+	if err := h.db.DeleteApiToken(req.ID, user.ID); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
