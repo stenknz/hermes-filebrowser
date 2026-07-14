@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { FileIcon } from './FileIcon'
-import { FiEdit3, FiSave, FiX, FiDownload, FiMaximize2, FiMinimize2 } from 'react-icons/fi'
+import { FiEdit3, FiSave, FiX, FiDownload } from 'react-icons/fi'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -62,6 +62,7 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
   const isVideo = VIDEO_EXTS.includes(ext || '')
   const isArchive = ARCHIVE_EXTS.includes(ext || '')
   const isPdf = ext === 'pdf'
+  const isHeic = ext === 'heic'
   const canEdit = isCode || isText || isMd
   const rawUrl = filePath ? `/api/files/raw?path=${encodeURIComponent(filePath)}` : ''
 
@@ -78,6 +79,13 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         .catch(() => setData(null))
     }
   }, [filePath])
+
+  useEffect(() => {
+    if (!lightbox) return
+    function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') setLightbox(false) }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [lightbox])
 
   async function handleSave() {
     if (!filePath) return
@@ -108,13 +116,13 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         <div className="flex items-center gap-1 shrink-0">
           {canEdit && !editing && <button onClick={() => { setEditContent(data || ''); setEditing(true) }} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiEdit3 className="w-3 h-3" /> Edit</button>}
           {canEdit && editing && <><button onClick={handleSave} disabled={saving} className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white transition-colors"><FiSave className="w-3 h-3" /> Save</button><button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiX className="w-3 h-3" /></button></>}
-          {!canEdit && <a href={rawUrl} download={fileName} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiDownload className="w-3 h-3" /> Download</a>}
-          {isImage && data && <button onClick={() => setLightbox(!lightbox)} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors">{lightbox ? <FiMinimize2 className="w-3 h-3" /> : <FiMaximize2 className="w-3 h-3" />}</button>}
+          {!canEdit && !isImage && <a href={rawUrl} download={fileName} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"><FiDownload className="w-3 h-3" /> Download</a>}
         </div>
       </div>
-      <div className={`overflow-auto ${lightbox ? 'fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4' : 'p-4'}`}>
-        {isImage && data && <img src={data} alt={fileName} className={`${lightbox ? 'max-w-full max-h-full object-contain' : 'max-h-48 rounded cursor-pointer'} ${!lightbox ? 'hover:opacity-90' : ''}`} onClick={() => !lightbox && setLightbox(true)} />}
-        {isPdf && <Document file={rawUrl}><Page pageNumber={1} width={lightbox ? 800 : 400} /></Document>}
+      <div className={`p-4 ${lightbox ? 'hidden' : ''}`}>
+        {isImage && data && <img src={data} alt={fileName} className="max-h-48 rounded cursor-pointer hover:opacity-90" onClick={() => setLightbox(true)} />}
+        {isHeic && <div className="text-sm text-[var(--color-text-muted)] p-4 text-center">HEIC preview not supported — <a href={rawUrl} download={fileName} className="text-[var(--color-accent)] underline">Download</a></div>}
+        {isPdf && <Document file={rawUrl}><Page pageNumber={1} width={400} /></Document>}
         {isAudio && data && <audio controls src={data} className="w-full max-w-md" />}
         {isVideo && data && <video controls src={data} className="max-h-48 rounded" />}
         {isArchive && <div className="text-sm text-[var(--color-text-muted)] p-4 text-center">Archive: <a href={rawUrl} download={fileName} className="text-[var(--color-accent)] underline">Download {fileName}</a></div>}
@@ -123,7 +131,12 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         {isText && !editing && data && <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono" dangerouslySetInnerHTML={{ __html: renderCode(data) }} />}
         {canEdit && editing && <textarea className="w-full h-48 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono leading-relaxed resize-y focus:outline-none focus:border-[var(--color-accent)]" value={editContent} onChange={e => setEditContent(e.target.value)} />}
       </div>
-      {lightbox && <div className="fixed inset-0 z-40" onClick={() => setLightbox(false)} />}
+      {lightbox && isImage && data && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightbox(false)}>
+          <button onClick={() => setLightbox(false)} className="absolute top-4 right-4 text-white/60 hover:text-white z-10"><FiX className="w-6 h-6" /></button>
+          <img src={data} alt={fileName} className="max-w-[95vw] max-h-[95vh] object-contain" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   )
 }
