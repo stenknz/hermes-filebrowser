@@ -67,15 +67,17 @@ func (d *DB) migrate() error {
 }
 
 func (d *DB) EnsureAdmin(username, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
 	var count int
 	if err := d.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {
-		return nil
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
+		// Update password if admin user already exists with this username
+		_, err = d.conn.Exec("UPDATE users SET password_hash = ? WHERE username = ? AND role = ?", string(hash), username, RoleAdmin)
 		return err
 	}
 	_, err = d.conn.Exec("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", username, string(hash), RoleAdmin)
