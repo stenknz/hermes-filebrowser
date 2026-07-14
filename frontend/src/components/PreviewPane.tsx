@@ -135,7 +135,7 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         {isMd && !editing && data && <div className="text-sm leading-relaxed prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdown(data) }} />}
         {isCode && !editing && data && <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono" dangerouslySetInnerHTML={{ __html: renderCode(data) }} />}
         {isText && !editing && data && <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono" dangerouslySetInnerHTML={{ __html: renderCode(data) }} />}
-        {canEdit && editing && <textarea className="w-full h-48 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono leading-relaxed resize-y focus:outline-none focus:border-[var(--color-accent)]" value={editContent} onChange={e => setEditContent(e.target.value)} />}
+        {canEdit && editing && <textarea className="w-full min-h-[200px] max-h-[400px] bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono leading-relaxed resize-y focus:outline-none focus:border-[var(--color-accent)]" value={editContent} onChange={e => setEditContent(e.target.value)} />}
       </div>
       {lightbox && isImage && data && !imgError && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightbox(false)}>

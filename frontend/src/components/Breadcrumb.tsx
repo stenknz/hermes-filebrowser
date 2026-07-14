@@ -1,3 +1,5 @@
+import { FiHome } from 'react-icons/fi'
+
 interface Props {
   path: string
   onNavigate: (path: string) => void
@@ -7,7 +9,10 @@ export default function Breadcrumb({ path, onNavigate }: Props) {
   const parts = path.split('/').filter(Boolean)
   return (
     <nav className="flex items-center gap-1 text-sm text-[var(--color-text-muted)] px-4 py-2">
-      <button onClick={() => onNavigate('')} className="hover:text-[var(--color-text)] transition-colors">Root</button>
+      <button onClick={() => onNavigate('')} className="flex items-center gap-1 hover:text-[var(--color-accent)] transition-colors font-medium" title="Go to root">
+        <FiHome className="w-3.5 h-3.5" />
+        <span>Root</span>
+      </button>
       {parts.map((part, i) => {
         const p = parts.slice(0, i + 1).join('/')
         return (

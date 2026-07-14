@@ -795,6 +795,111 @@ func TestSearch_MissingQuery(t *testing.T) {
 	}
 }
 
+// --- API Token Tests ---
+
+func TestApiToken_CRUD(t *testing.T) {
+	d, _, root := setupTestEnv(t)
+	defer d.Close()
+	user := mustCreateUser(t, d, "editor", "pass", db.RoleEditor)
+
+	// Create an API token
+	tokenVal := auth.NewApiToken()
+	_, err := d.CreateApiToken(user.ID, tokenVal, "test-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc, err := fs.NewService(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fh := NewFileHandler(svc)
+
+	// API token requests — no CSRF needed
+	apiReq := func(method, target string, body []byte) *http.Request {
+		req := httptest.NewRequest(method, target, bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+tokenVal)
+		req.Header.Set("Content-Type", "application/json")
+		return req
+	}
+
+	t.Run("List", func(t *testing.T) {
+		req := apiReq("GET", "/api/files?path=.", nil)
+		rec := httptest.NewRecorder()
+		withSession(d, fh.List).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("list got %d, want %d", rec.Code, http.StatusOK)
+		}
+	})
+
+	t.Run("CreateDir", func(t *testing.T) {
+		req := apiReq("POST", "/api/files/dir?path=api-token-dir", nil)
+		rec := httptest.NewRecorder()
+		withSession(d, fh.CreateDir).ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Errorf("mkdir got %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+	})
+
+	t.Run("CreateFile", func(t *testing.T) {
+		body := `{"path":"api-token-dir/test.txt","content":"hello from api token"}`
+		req := apiReq("POST", "/api/files/file", []byte(body))
+		rec := httptest.NewRecorder()
+		withSession(d, fh.CreateFile).ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Errorf("create file got %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+	})
+
+	t.Run("ReadFile", func(t *testing.T) {
+		req := apiReq("GET", "/api/files/raw?path=api-token-dir/test.txt", nil)
+		rec := httptest.NewRecorder()
+		withSession(d, fh.Read).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("read got %d, want %d", rec.Code, http.StatusOK)
+		}
+	})
+
+	t.Run("Rename", func(t *testing.T) {
+		body := `{"oldPath":"api-token-dir/test.txt","newPath":"api-token-dir/renamed.txt"}`
+		req := apiReq("PUT", "/api/files/rename", []byte(body))
+		rec := httptest.NewRecorder()
+		withSession(d, fh.Rename).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("rename got %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+
+	t.Run("Copy", func(t *testing.T) {
+		body := `{"source":"api-token-dir/renamed.txt","destination":"api-token-dir/copied.txt"}`
+		req := apiReq("POST", "/api/files/copy", []byte(body))
+		rec := httptest.NewRecorder()
+		withSession(d, fh.Copy).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("copy got %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+
+	t.Run("Move", func(t *testing.T) {
+		body := `{"source":"api-token-dir/copied.txt","destination":"api-token-dir/moved.txt"}`
+		req := apiReq("POST", "/api/files/move", []byte(body))
+		rec := httptest.NewRecorder()
+		withSession(d, fh.Move).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("move got %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		req := apiReq("DELETE", "/api/files?path=api-token-dir", nil)
+		rec := httptest.NewRecorder()
+		withSession(d, fh.Delete).ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("delete got %d, want %d: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+		}
+	})
+}
+
 // --- Router Tests ---
 
 func TestNewRouter(t *testing.T) {
