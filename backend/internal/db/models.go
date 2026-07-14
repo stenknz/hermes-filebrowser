@@ -13,6 +13,7 @@ type User struct {
 	Username     string `json:"username"`
 	PasswordHash string `json:"-"`
 	Role         Role   `json:"role"`
+	HomePath     string `json:"homePath,omitempty"`
 }
 
 func (u *User) ReadOnly() bool {

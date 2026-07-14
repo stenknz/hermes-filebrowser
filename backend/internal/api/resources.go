@@ -20,6 +20,14 @@ func NewResourcesHandler(svc *fs.Service) *resourcesHandler {
 	return &resourcesHandler{svc: svc}
 }
 
+func (h *resourcesHandler) forUser(r *http.Request) *fs.Service {
+	user := auth.GetUser(r)
+	if user != nil && user.HomePath != "" {
+		return h.svc.Scoped(user.HomePath)
+	}
+	return h.svc
+}
+
 func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r)
 	body, err := io.ReadAll(r.Body)
@@ -55,7 +63,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "path required", http.StatusBadRequest)
 			return
 		}
-		if err := h.svc.Mkdir(req.Path); err != nil {
+		if err := h.forUser(r).Mkdir(req.Path); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -69,7 +77,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "path required", http.StatusBadRequest)
 			return
 		}
-		if err := h.svc.Write(req.Path, []byte(req.Content)); err != nil {
+		if err := h.forUser(r).Write(req.Path, []byte(req.Content)); err != nil {
 			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -83,7 +91,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "source and destination required", http.StatusBadRequest)
 			return
 		}
-		if err := h.svc.Copy(req.Source, req.Destination); err != nil {
+		if err := h.forUser(r).Copy(req.Source, req.Destination); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -97,7 +105,7 @@ func (h *resourcesHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "source and destination required", http.StatusBadRequest)
 			return
 		}
-		if err := h.svc.Rename(req.Source, req.Destination); err != nil {
+		if err := h.forUser(r).Rename(req.Source, req.Destination); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -125,7 +133,7 @@ func (h *resourcesHandler) HandlePatch(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "oldPath and newPath required", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Rename(req.OldPath, req.NewPath); err != nil {
+	if err := h.forUser(r).Rename(req.OldPath, req.NewPath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -149,7 +157,7 @@ func (h *resourcesHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, `{"error":"path required — use ?path= query or {\"path\":\"...\"} body"}`, http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Delete(filePath); err != nil {
+	if err := h.forUser(r).Delete(filePath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -179,7 +187,7 @@ func (h *resourcesHandler) HandleUpload(w http.ResponseWriter, r *http.Request) 
 	}
 	dirPath := r.URL.Query().Get("path")
 	targetPath := filepath.Join(dirPath, header.Filename)
-	if err := h.svc.Write(targetPath, data); err != nil {
+	if err := h.forUser(r).Write(targetPath, data); err != nil {
 		jsonError(w, "write failed", http.StatusInternalServerError)
 		return
 	}
@@ -200,7 +208,7 @@ func (h *resourcesHandler) HandleRaw(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid path", http.StatusBadRequest)
 		return
 	}
-	data, err := h.svc.Read(filePath)
+	data, err := h.forUser(r).Read(filePath)
 	if err != nil {
 		jsonError(w, "not found", http.StatusNotFound)
 		return

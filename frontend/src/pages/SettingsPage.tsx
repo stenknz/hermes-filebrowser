@@ -11,6 +11,7 @@ export default function SettingsPage() {
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('viewer')
+  const [newHomePath, setNewHomePath] = useState('')
   const [tokenName, setTokenName] = useState('')
   const [newToken, setNewToken] = useState('')
   const [tab, setTab] = useState<'users' | 'tokens'>('users')
@@ -28,8 +29,8 @@ export default function SettingsPage() {
   async function createUser() {
     if (!newUsername || !newPassword) return
     try {
-      await api.post('/api/users', { username: newUsername, password: newPassword, role: newRole })
-      setNewUsername(''); setNewPassword('')
+      await api.post('/api/users', { username: newUsername, password: newPassword, role: newRole, homePath: newHomePath })
+      setNewUsername(''); setNewPassword(''); setNewHomePath('')
       loadUsers()
     } catch (e: any) { alert(e.message) }
   }
@@ -77,6 +78,7 @@ export default function SettingsPage() {
               <option value="editor">Editor (read/write)</option>
               <option value="viewer">Viewer (read-only)</option>
             </select>
+            <input className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm" placeholder="Restrict to folder (optional, e.g. agent-folder)" value={newHomePath} onChange={e => setNewHomePath(e.target.value)} />
             <button onClick={createUser} className="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs px-4 py-2 rounded-lg transition-colors">Create</button>
           </div>
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2">
@@ -86,6 +88,7 @@ export default function SettingsPage() {
                 <div>
                   <span className="text-sm">{u.username}</span>
                   <span className="text-xs text-[var(--color-text-muted)] ml-2">{u.role}</span>
+                  {u.homePath && <span className="text-xs text-[var(--color-text-muted)] ml-2">/ {u.homePath}</span>}
                 </div>
                 {u.id !== user?.id && <button onClick={() => deleteUser(u.id)} className="text-xs text-[var(--color-danger)] hover:underline">Delete</button>}
               </div>

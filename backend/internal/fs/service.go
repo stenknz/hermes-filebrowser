@@ -23,18 +23,27 @@ type FileInfo struct {
 }
 
 type Service struct {
-	root string
+	root    string
+	subpath string
 }
 
-func NewService(root string) (*Service, error) {
+func (s *Service) Scoped(subpath string) *Service {
+	return &Service{root: s.root, subpath: subpath}
+}
+
+func NewService(root string, subpath ...string) (*Service, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{root: absRoot}, nil
+	sp := ""
+	if len(subpath) > 0 {
+		sp = subpath[0]
+	}
+	return &Service{root: absRoot, subpath: sp}, nil
 }
 
-var ErrIsRoot = os.ErrInvalid // operating on the root directory is not allowed
+var ErrIsRoot = os.ErrInvalid
 
 func (s *Service) SafePath(path string) (string, error) {
 	if filepath.IsAbs(path) {
@@ -44,7 +53,11 @@ func (s *Service) SafePath(path string) (string, error) {
 	if strings.HasPrefix(clean, "..") || strings.Contains(clean, "..") {
 		return "", os.ErrPermission
 	}
-		fullPath := filepath.Join(s.root, clean)
+	joined := clean
+	if s.subpath != "" {
+		joined = filepath.Join(s.subpath, clean)
+	}
+	fullPath := filepath.Join(s.root, joined)
 	absPath, err := filepath.Abs(fullPath)
 	if err != nil {
 		return "", err

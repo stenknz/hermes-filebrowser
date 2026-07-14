@@ -44,6 +44,7 @@ func (h *usersHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Username string   `json:"username"`
 		Password string   `json:"password"`
 		Role     db.Role `json:"role"`
+		HomePath string   `json:"homePath"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid body", http.StatusBadRequest)
@@ -61,7 +62,7 @@ func (h *usersHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	u, err := h.db.CreateUser(req.Username, string(hash), req.Role)
+	u, err := h.db.CreateUser(req.Username, string(hash), req.Role, req.HomePath)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return

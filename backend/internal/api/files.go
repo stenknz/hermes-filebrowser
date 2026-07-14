@@ -18,9 +18,17 @@ func NewFileHandler(svc *fs.Service) *fileHandler {
 	return &fileHandler{svc: svc}
 }
 
+func (h *fileHandler) forUser(r *http.Request) *fs.Service {
+	user := auth.GetUser(r)
+	if user != nil && user.HomePath != "" {
+		return h.svc.Scoped(user.HomePath)
+	}
+	return h.svc
+}
+
 func (h *fileHandler) List(w http.ResponseWriter, r *http.Request) {
 	dirPath := r.URL.Query().Get("path")
-	entries, err := h.svc.List(dirPath)
+	entries, err := h.forUser(r).List(dirPath)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -34,7 +42,7 @@ func (h *fileHandler) Read(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "path required", http.StatusBadRequest)
 		return
 	}
-	data, err := h.svc.Read(filePath)
+	data, err := h.forUser(r).Read(filePath)
 	if err != nil {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
@@ -53,7 +61,7 @@ func (h *fileHandler) Read(w http.ResponseWriter, r *http.Request) {
 
 func (h *fileHandler) Thumbnail(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Query().Get("path")
-	data, err := h.svc.Thumbnail(filePath)
+	data, err := h.forUser(r).Thumbnail(filePath)
 	if err != nil {
 		jsonError(w, "cannot generate thumbnail", http.StatusBadRequest)
 		return
@@ -84,7 +92,7 @@ func (h *fileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to read file", http.StatusInternalServerError)
 		return
 	}
-	if err := h.svc.Write(filepath.Join(dirPath, header.Filename), data); err != nil {
+	if err := h.forUser(r).Write(filepath.Join(dirPath, header.Filename), data); err != nil {
 		jsonError(w, "write failed", http.StatusInternalServerError)
 		return
 	}
@@ -98,7 +106,7 @@ func (h *fileHandler) CreateDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dirPath := r.URL.Query().Get("path")
-	if err := h.svc.Mkdir(dirPath); err != nil {
+	if err := h.forUser(r).Mkdir(dirPath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -119,7 +127,7 @@ func (h *fileHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Write(req.Path, []byte(req.Content)); err != nil {
+	if err := h.forUser(r).Write(req.Path, []byte(req.Content)); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -140,7 +148,7 @@ func (h *fileHandler) Rename(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Rename(req.OldPath, req.NewPath); err != nil {
+	if err := h.forUser(r).Rename(req.OldPath, req.NewPath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -154,7 +162,7 @@ func (h *fileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filePath := r.URL.Query().Get("path")
-	if err := h.svc.Delete(filePath); err != nil {
+	if err := h.forUser(r).Delete(filePath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -175,7 +183,7 @@ func (h *fileHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Copy(req.Source, req.Destination); err != nil {
+	if err := h.forUser(r).Copy(req.Source, req.Destination); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -196,7 +204,7 @@ func (h *fileHandler) Move(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Rename(req.Source, req.Destination); err != nil {
+	if err := h.forUser(r).Rename(req.Source, req.Destination); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}

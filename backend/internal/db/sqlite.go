@@ -41,7 +41,8 @@ func (d *DB) migrate() error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
-			role TEXT NOT NULL DEFAULT 'viewer'
+			role TEXT NOT NULL DEFAULT 'viewer',
+			home_path TEXT NOT NULL DEFAULT ''
 		);
 		CREATE TABLE IF NOT EXISTS sessions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,10 +82,14 @@ func (d *DB) EnsureAdmin(username, password string) error {
 	return err
 }
 
-func (d *DB) CreateUser(username, passwordHash string, role Role) (*User, error) {
+func (d *DB) CreateUser(username, passwordHash string, role Role, homePath ...string) (*User, error) {
+	hp := ""
+	if len(homePath) > 0 {
+		hp = homePath[0]
+	}
 	u := &User{}
-	err := d.conn.QueryRow("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?) RETURNING id, username, password_hash, role",
-		username, passwordHash, role).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role)
+	err := d.conn.QueryRow("INSERT INTO users (username, password_hash, role, home_path) VALUES (?, ?, ?, ?) RETURNING id, username, password_hash, role, home_path",
+		username, passwordHash, role, hp).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.HomePath)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +97,7 @@ func (d *DB) CreateUser(username, passwordHash string, role Role) (*User, error)
 }
 
 func (d *DB) ListUsers() ([]*User, error) {
-	rows, err := d.conn.Query("SELECT id, username, password_hash, role FROM users ORDER BY id")
+	rows, err := d.conn.Query("SELECT id, username, password_hash, role, home_path FROM users ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +105,7 @@ func (d *DB) ListUsers() ([]*User, error) {
 	var users []*User
 	for rows.Next() {
 		u := &User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.HomePath); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -117,7 +122,7 @@ func (d *DB) DeleteUser(id int64) error {
 
 func (d *DB) GetUserByUsername(username string) (*User, error) {
 	u := &User{}
-	err := d.conn.QueryRow("SELECT id, username, password_hash, role FROM users WHERE username = ?", username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role)
+	err := d.conn.QueryRow("SELECT id, username, password_hash, role, home_path FROM users WHERE username = ?", username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.HomePath)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +131,7 @@ func (d *DB) GetUserByUsername(username string) (*User, error) {
 
 func (d *DB) GetUserByID(id int64) (*User, error) {
 	u := &User{}
-	err := d.conn.QueryRow("SELECT id, username, password_hash, role FROM users WHERE id = ?", id).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role)
+	err := d.conn.QueryRow("SELECT id, username, password_hash, role, home_path FROM users WHERE id = ?", id).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.HomePath)
 	if err != nil {
 		return nil, err
 	}

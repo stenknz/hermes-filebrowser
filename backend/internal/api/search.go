@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/stenknz/hermes-filebrowser/internal/auth"
 	"github.com/stenknz/hermes-filebrowser/internal/fs"
 )
 
@@ -16,6 +17,14 @@ func NewSearchHandler(svc *fs.Service) *searchHandler {
 	return &searchHandler{svc: svc}
 }
 
+func (h *searchHandler) forUser(r *http.Request) *fs.Service {
+	user := auth.GetUser(r)
+	if user != nil && user.HomePath != "" {
+		return h.svc.Scoped(user.HomePath)
+	}
+	return h.svc
+}
+
 func (h *searchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	basePath := r.URL.Query().Get("path")
@@ -23,7 +32,7 @@ func (h *searchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "missing query", http.StatusBadRequest)
 		return
 	}
-	entries, err := h.svc.List(basePath)
+	entries, err := h.forUser(r).List(basePath)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
