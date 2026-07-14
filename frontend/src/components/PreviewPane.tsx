@@ -53,6 +53,7 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState(false)
+  const [imgError, setImgError] = useState(false)
   const ext = filePath?.split('.').pop()?.toLowerCase()
   const isCode = CODE_EXTS.includes(ext || '')
   const isText = TEXT_EXTS.includes(ext || '')
@@ -68,6 +69,7 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
   useEffect(() => {
     setEditing(false)
     setLightbox(false)
+    setImgError(false)
     if (!filePath) { setData(null); return }
     if (isImage || isAudio || isVideo) {
       setData(rawUrl)
@@ -119,7 +121,8 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         </div>
       </div>
       <div className={`p-4 ${lightbox ? 'hidden' : ''}`}>
-        {isImage && data && <img src={data} alt={fileName} className="max-h-48 rounded cursor-pointer hover:opacity-90" onClick={() => setLightbox(true)} />}
+        {isImage && data && !imgError && <img src={data} alt={fileName} className="max-h-48 rounded cursor-pointer hover:opacity-90" onClick={() => setLightbox(true)} onError={() => setImgError(true)} />}
+        {isImage && imgError && <div className="text-sm text-[var(--color-text-muted)] p-2">Format not supported by browser — <a href={rawUrl} download={fileName} className="text-[var(--color-accent)] underline">Download</a></div>}
 
         {isPdf && <Document file={rawUrl}><Page pageNumber={1} width={400} /></Document>}
         {isAudio && data && <audio controls src={data} className="w-full max-w-md" />}
@@ -130,10 +133,10 @@ export default function PreviewPane({ filePath, onRefresh }: Props) {
         {isText && !editing && data && <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono" dangerouslySetInnerHTML={{ __html: renderCode(data) }} />}
         {canEdit && editing && <textarea className="w-full h-48 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono leading-relaxed resize-y focus:outline-none focus:border-[var(--color-accent)]" value={editContent} onChange={e => setEditContent(e.target.value)} />}
       </div>
-      {lightbox && isImage && data && (
+      {lightbox && isImage && data && !imgError && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightbox(false)}>
           <button onClick={() => setLightbox(false)} className="absolute top-4 right-4 text-white/60 hover:text-white z-10"><FiX className="w-6 h-6" /></button>
-          <img src={data} alt={fileName} className="max-w-[95vw] max-h-[95vh] object-contain" onClick={e => e.stopPropagation()} />
+          <img src={data} alt={fileName} className="max-w-[95vw] max-h-[95vh] object-contain" onClick={e => e.stopPropagation()} onError={() => setLightbox(false)} />
         </div>
       )}
     </div>
