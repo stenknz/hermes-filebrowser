@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -55,7 +56,13 @@ func TestSafePath_AbsolutePath(t *testing.T) {
 	}
 
 	// absolute paths that are outside root should fail
-	_, err = s.SafePath("/etc/passwd")
+	var absOutside string
+	if runtime.GOOS == "windows" {
+		absOutside = `C:\Windows\System32\drivers\etc\hosts`
+	} else {
+		absOutside = "/etc/passwd"
+	}
+	_, err = s.SafePath(absOutside)
 	if err == nil {
 		t.Error("expected error for absolute path outside root")
 	}
