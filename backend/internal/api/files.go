@@ -155,10 +155,11 @@ func (h *fileHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-		Type    string `json:"type"`
-		Base64  bool   `json:"base64"`
+		Path     string `json:"path"`
+		Content  string `json:"content"`
+		Type     string `json:"type"`
+		Base64   bool   `json:"base64"`
+		Encoding string `json:"encoding"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid body", http.StatusBadRequest)
@@ -173,9 +174,9 @@ func (h *fileHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		return
 	}
-	// Decode base64 content if requested
+	// Decode base64 content if requested (accept both "base64": true and "encoding": "base64")
 	data := []byte(req.Content)
-	if req.Base64 {
+	if req.Base64 || strings.ToLower(req.Encoding) == "base64" {
 		var err error
 		data, err = base64.StdEncoding.DecodeString(req.Content)
 		if err != nil {
