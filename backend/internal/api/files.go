@@ -30,6 +30,13 @@ func (h *fileHandler) List(w http.ResponseWriter, r *http.Request) {
 	dirPath := r.URL.Query().Get("path")
 	entries, err := h.forUser(r).List(dirPath)
 	if err != nil {
+		// If path with trailing slash fails, try without
+		if len(dirPath) > 0 && dirPath[len(dirPath)-1] == '/' {
+			dirPath = dirPath[:len(dirPath)-1]
+			entries, err = h.forUser(r).List(dirPath)
+		}
+	}
+	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -106,7 +113,33 @@ func (h *fileHandler) CreateDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dirPath := r.URL.Query().Get("path")
+	if dirPath == "" {
+		var body struct{ Path string `json:"path"` }
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			dirPath = body.Path
+		}
+	}
 	if err := h.forUser(r).Mkdir(dirPath); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *fileHandler) MkdirPost(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r)
+	if user.ReadOnly() {
+		jsonError(w, "read-only user", http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if err := h.forUser(r).Mkdir(req.Path); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -162,9 +195,50 @@ func (h *fileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		var body struct{ Path string `json:"path"` }
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			filePath = body.Path
+		}
+	}
+	if filePath == "" {
+		jsonError(w, "path required", http.StatusBadRequest)
+		return
+	}
 	if err := h.forUser(r).Delete(filePath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *fileHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r)
+	if user.ReadOnly() {
+		jsonError(w, "read-only user", http.StatusForbidden)
+		return
+	}
+	var body struct {
+		Path  string   `json:"path"`
+		Names []string `json:"names"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if body.Path != "" {
+		if err := h.forUser(r).Delete(body.Path); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	for _, name := range body.Names {
+		if err := h.forUser(r).Delete(name); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

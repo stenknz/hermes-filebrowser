@@ -58,9 +58,12 @@ func NewRouter(database *db.DB, cfg *config.Config) http.Handler {
 		r.Get("/api/files/thumbnail", fh.Thumbnail)
 		r.Post("/api/files/upload", fh.Upload)
 		r.Post("/api/files/dir", fh.CreateDir)
+		r.Post("/api/files/mkdir", fh.MkdirPost)
 		r.Post("/api/files/file", fh.CreateFile)
 		r.Put("/api/files/rename", fh.Rename)
+		r.Post("/api/files/rename", fh.Rename)
 		r.Delete("/api/files", fh.Delete)
+		r.Post("/api/files/delete", fh.DeletePost)
 		r.Post("/api/files/copy", fh.Copy)
 		r.Post("/api/files/move", fh.Move)
 

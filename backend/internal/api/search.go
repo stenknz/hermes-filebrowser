@@ -27,6 +27,9 @@ func (h *searchHandler) forUser(r *http.Request) *fs.Service {
 
 func (h *searchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
+	if q == "" {
+		q = r.URL.Query().Get("query")
+	}
 	basePath := r.URL.Query().Get("path")
 	if q == "" {
 		jsonError(w, "missing query", http.StatusBadRequest)

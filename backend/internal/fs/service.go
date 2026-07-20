@@ -150,6 +150,9 @@ func (s *Service) Write(filePath string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(fullPath, data, 0644)
 }
 
@@ -182,6 +185,9 @@ func (s *Service) Rename(oldPath, newPath string) error {
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(fullNew), 0755); err != nil {
+		return err
+	}
 	return os.Rename(fullOld, fullNew)
 }
 
@@ -198,6 +204,9 @@ func (s *Service) Copy(src, dst string) error {
 	}
 	fullDst, err := s.SafePath(dst)
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(fullDst), 0755); err != nil {
 		return err
 	}
 	srcFile, err := os.Open(fullSrc)
