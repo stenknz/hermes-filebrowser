@@ -346,6 +346,18 @@ func (h *fileHandler) Stat(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := os.Stat(fullPath)
 	if err != nil {
+		// For root dir that doesn't exist yet, return empty dir info
+		if filePath == "." || filePath == "" {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"name":    "",
+				"path":    "",
+				"size":    0,
+				"isDir":   true,
+				"modTime": time.Now().Format(time.RFC3339),
+				"mode":    "drwxr-xr-x",
+			})
+			return
+		}
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
