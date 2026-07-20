@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/stenknz/hermes-filebrowser/internal/auth"
 	"github.com/stenknz/hermes-filebrowser/internal/fs"
@@ -198,14 +200,36 @@ func (h *fileHandler) Rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		OldPath string `json:"oldPath"`
-		NewPath string `json:"newPath"`
+		OldPath     string `json:"oldPath"`
+		NewPath     string `json:"newPath"`
+		Source      string `json:"source"`
+		Destination string `json:"destination"`
+		From        string `json:"from"`
+		To          string `json:"to"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.forUser(r).Rename(req.OldPath, req.NewPath); err != nil {
+	oldPath := req.OldPath
+	if oldPath == "" {
+		oldPath = req.Source
+	}
+	if oldPath == "" {
+		oldPath = req.From
+	}
+	newPath := req.NewPath
+	if newPath == "" {
+		newPath = req.Destination
+	}
+	if newPath == "" {
+		newPath = req.To
+	}
+	if oldPath == "" || newPath == "" {
+		jsonError(w, "oldPath and newPath (or source/destination) required", http.StatusBadRequest)
+		return
+	}
+	if err := h.forUser(r).Rename(oldPath, newPath); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -307,4 +331,53 @@ func (h *fileHandler) Move(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *fileHandler) Stat(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		jsonError(w, "path required", http.StatusBadRequest)
+		return
+	}
+	fullPath, err := h.forUser(r).SafePath(filePath)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		jsonError(w, "not found", http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"name":    info.Name(),
+		"path":    filePath,
+		"size":    info.Size(),
+		"isDir":   info.IsDir(),
+		"modTime": info.ModTime().Format(time.RFC3339),
+		"mode":    info.Mode().String(),
+	})
+}
+
+func (h *fileHandler) UploadRaw(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r)
+	if user.ReadOnly() {
+		jsonError(w, "read-only user", http.StatusForbidden)
+		return
+	}
+	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		jsonError(w, "path required", http.StatusBadRequest)
+		return
+	}
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		jsonError(w, "failed to read body", http.StatusInternalServerError)
+		return
+	}
+	if err := h.forUser(r).Write(filePath, data); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
 }
