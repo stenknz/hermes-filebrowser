@@ -1,10 +1,12 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/stenknz/hermes-filebrowser/internal/auth"
 	"github.com/stenknz/hermes-filebrowser/internal/fs"
@@ -155,12 +157,33 @@ func (h *fileHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
+		Type    string `json:"type"`
+		Base64  bool   `json:"base64"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if err := h.forUser(r).Write(req.Path, []byte(req.Content)); err != nil {
+	// If type is "dir" or path ends with /, create a directory
+	if req.Type == "dir" || strings.HasSuffix(req.Path, "/") {
+		if err := h.forUser(r).Mkdir(req.Path); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		return
+	}
+	// Decode base64 content if requested
+	data := []byte(req.Content)
+	if req.Base64 {
+		var err error
+		data, err = base64.StdEncoding.DecodeString(req.Content)
+		if err != nil {
+			jsonError(w, "invalid base64 content", http.StatusBadRequest)
+			return
+		}
+	}
+	if err := h.forUser(r).Write(req.Path, data); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
