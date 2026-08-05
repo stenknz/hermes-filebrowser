@@ -82,9 +82,6 @@ var hiddenPrefixes = []string{"filebrowser.db", "filebrowser.db-"}
 var hiddenSuffixes = []string{".db-shm", ".db-wal"}
 
 func isHidden(name string) bool {
-	if strings.HasPrefix(name, ".") {
-		return true
-	}
 	for _, prefix := range hiddenPrefixes {
 		if strings.HasPrefix(name, prefix) {
 			return true
